@@ -1,0 +1,129 @@
+{
+  "$schema": "https://raw.githubusercontent.com/martinring/tmlanguage/master/tmlanguage.json",
+  "name": "Stamp",
+  "scopeName": "source.stamp",
+  "fileTypes": ["stamp"],
+  "patterns": [
+    { "include": "#separator" },
+    { "include": "#comment" },
+    { "include": "#script" },
+    { "include": "#directive" },
+    { "include": "#declaration" },
+    { "include": "#block" },
+    { "include": "#request-line" },
+    { "include": "#header" },
+    { "include": "#interpolation" },
+    { "include": "#string" },
+    { "include": "#number" }
+  ],
+  "repository": {
+    "separator": {
+      "match": "^###.*$",
+      "name": "markup.heading.stamp"
+    },
+    "comment": {
+      "match": "^\\s*(#(?!##)|//).*$",
+      "name": "comment.line.stamp"
+    },
+    "script": {
+      "begin": "^\\s*(>)\\s*(assert|set|save|let|print|send|receive|wait|close)?\\b",
+      "beginCaptures": {
+        "1": { "name": "punctuation.definition.script.stamp" },
+        "2": { "name": "keyword.control.stamp" }
+      },
+      "end": "$",
+      "patterns": [{ "include": "#expression" }]
+    },
+    "directive": {
+      "match": "^\\s*(@(?:name|needs|timeout|no-redirect|insecure|auth|sampling|elicitation|roots))\\b(.*)$",
+      "captures": {
+        "1": { "name": "keyword.other.directive.stamp" },
+        "2": { "patterns": [{ "include": "#interpolation" }, { "include": "#auth-scheme" }] }
+      }
+    },
+    "auth-scheme": {
+      "match": "\\b(bearer|jwt|basic|apikey|oauth2|none|client_credentials|password|reply|accept|decline|cancel)\\b",
+      "name": "support.constant.auth.stamp"
+    },
+    "declaration": {
+      "patterns": [
+        {
+          "match": "^\\s*(@)([A-Za-z_][\\w]*)\\s*(=)(.*)$",
+          "captures": {
+            "1": { "name": "punctuation.definition.variable.stamp" },
+            "2": { "name": "variable.other.stamp" },
+            "3": { "name": "keyword.operator.assignment.stamp" },
+            "4": { "patterns": [{ "include": "#interpolation" }] }
+          }
+        },
+        {
+          "match": "^\\s*(let|fn)\\s+([A-Za-z_][\\w]*)",
+          "captures": {
+            "1": { "name": "storage.type.stamp" },
+            "2": { "name": "entity.name.function.stamp" }
+          }
+        }
+      ]
+    },
+    "block": {
+      "match": "^\\s*(plan|load|dimension|vars|setup|teardown|scenario|step|matrix|data|parallel|retry|timeout|tags|users|ramp|duration|iterations|think|seed|threshold|run|expect|repeat|for each|if|else|concurrently|sync|share)\\b",
+      "name": "keyword.control.block.stamp"
+    },
+    "request-line": {
+      "patterns": [
+        {
+          "match": "^\\s*(MCP)\\s+(stdio:.*|\\S+)\\s*$",
+          "captures": {
+            "1": { "name": "keyword.other.method.stamp" },
+            "2": { "name": "string.unquoted.url.stamp", "patterns": [{ "include": "#interpolation" }] }
+          }
+        },
+        {
+          "match": "^\\s*(GET|POST|PUT|PATCH|DELETE|HEAD|OPTIONS|GRAPHQL|WS|WEBSOCKET|STUN|TURN)\\s+(\\S+)(\\s+HTTP/[\\d.]+)?\\s*$",
+          "captures": {
+            "1": { "name": "keyword.other.method.stamp" },
+            "2": { "name": "string.unquoted.url.stamp", "patterns": [{ "include": "#interpolation" }] },
+            "3": { "name": "constant.other.version.stamp" }
+          }
+        }
+      ]
+    },
+    "header": {
+      "match": "^([A-Za-z][\\w-]*)(:)\\s(.*)$",
+      "captures": {
+        "1": { "name": "entity.name.tag.header.stamp" },
+        "2": { "name": "punctuation.separator.stamp" },
+        "3": { "patterns": [{ "include": "#interpolation" }] }
+      }
+    },
+    "interpolation": {
+      "begin": "(?<!\\\\)\\{\\{",
+      "beginCaptures": { "0": { "name": "punctuation.section.interpolation.begin.stamp" } },
+      "end": "\\}\\}",
+      "endCaptures": { "0": { "name": "punctuation.section.interpolation.end.stamp" } },
+      "contentName": "meta.embedded.expression.stamp",
+      "patterns": [{ "include": "#expression" }]
+    },
+    "expression": {
+      "patterns": [
+        { "include": "#string" },
+        { "include": "#number" },
+        { "match": "\\b(true|false|null)\\b", "name": "constant.language.stamp" },
+        { "match": "\\b(contains|matches|and|or|not)\\b", "name": "keyword.operator.word.stamp" },
+        { "match": "=>|==|!=|<=|>=|&&|\\|\\||\\?\\?|[-+*/%<>!?:]", "name": "keyword.operator.stamp" },
+        { "match": "\\b([A-Za-z_]\\w*)(?=\\s*\\()", "name": "entity.name.function.stamp" },
+        { "match": "\\b(status|headers|body|text|time|size|response|message|data|env|fake|server|tools|toolNames|resources|resourceTemplates|prompts|promptNames|notifications)\\b", "name": "variable.language.stamp" }
+      ]
+    },
+    "string": {
+      "patterns": [
+        { "begin": "\"", "end": "\"", "name": "string.quoted.double.stamp", "patterns": [{ "match": "\\\\.", "name": "constant.character.escape.stamp" }, { "include": "#interpolation" }] },
+        { "begin": "'", "end": "'", "name": "string.quoted.single.stamp", "patterns": [{ "match": "\\\\.", "name": "constant.character.escape.stamp" }] }
+      ]
+    },
+    "number": {
+      "match": "\\b\\d+(\\.\\d+)?(ms|s|m|%)?\\b",
+      "name": "constant.numeric.stamp"
+    }
+  }
+}

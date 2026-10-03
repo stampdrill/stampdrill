@@ -1,0 +1,66 @@
+# Load tests run a scenario with many virtual users; thresholds decide
+# whether the run passed. Be kind to public APIs: keep the numbers small.
+#
+#   stampdrill load "Load and races.stamp"
+
+load BlogTraffic {
+  tags load
+  users 5
+  ramp 2s
+  duration 10s
+  think 200ms..600ms
+  seed blog-traffic
+  threshold p95 < 1500ms
+  threshold errors < 5%
+  threshold checks > 95%
+
+  scenario {
+    run listPosts
+    expect status == 200
+    run getAPost with postId = randomInt(1, 100)
+    expect body.id != null
+    run createAPost
+    share lastCreated = body.id
+  }
+}
+
+# Every iteration has its own seed, so uuid("order") is the same id for the
+# create and the lookup of one iteration, and the same again next run.
+load EchoOrders {
+  users 3
+  iterations 12
+  seed echo-orders
+  threshold errors < 1%
+
+  scenario {
+    run placeOrder with orderId = uuid("order")
+    expect body.json.orderId == uuid("order")
+    run lookupOrder with orderId = uuid("order")
+    expect body.args.id == uuid("order")
+  }
+}
+
+# Race conditions: actors start together, wait for each other at `sync`,
+# and `results` holds each actor's last response afterwards.
+plan RaceOnEcho {
+  tags race
+
+  concurrently 5 {
+    sync "go"
+    run placeOrder with orderId = uuid("shared-cart")
+    share lastActor = actor
+  }
+
+  expect length(results) == 5
+  expect all(results, r => r.status == 200)
+  expect length(unique(map(results, r => r.body.json.orderId))) == 1, "every actor used the same cart id"
+  expect shared.lastActor != null
+}
+
+### Place order
+POST {{httpbin}}/anything/orders
+
+{ "orderId": "{{orderId}}", "customer": "{{person(orderId).name}}" }
+
+### Lookup order
+GET {{httpbin}}/anything/orders?id={{orderId}}

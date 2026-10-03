@@ -1,0 +1,14 @@
+{
+  "name": "stampdrill",
+  "owner": { "name": "Samal Studios", "url": "https://stampdrill.com" },
+  "metadata": {
+    "description": "Skills for working with Stampdrill .stamp request files."
+  },
+  "plugins": [
+    {
+      "name": "stampdrill",
+      "source": "./plugins/stampdrill",
+      "description": "Write, edit and check Stampdrill .stamp files: HTTP requests, assertions, test plans, load tests and multi-dimensional environments."
+    }
+  ]
+}

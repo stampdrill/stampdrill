@@ -1,0 +1,44 @@
+# A WebRTC call needs three things to work: STUN servers that tell each peer
+# its public address, TURN servers that relay media when no direct path
+# exists, and a signaling channel to trade offers and answers.
+#
+# STUN and TURN requests take the same URLs as RTCPeerConnection's iceServers.
+# The response is a report: `mapped` is the address the server saw, `relayed`
+# the relay a TURN server handed out, `rtt` the round trip in milliseconds.
+# A TURN server that rejects the credentials answers 401.
+
+### Public address from Google
+STUN stun:stun.l.google.com:19302
+
+> assert status == 200
+> assert body.mapped.port > 0
+> assert body.rtt < 500
+> print "reachable as " + body.mapped.address
+
+### Public address from Cloudflare
+STUN stun:stun.cloudflare.com:3478
+
+> assert status == 200
+
+### TURN relay
+# Without credentials this proves the server is up and asks for them. Put
+# turnUser and turnPassword in environment.local.stamp and enable the @auth
+# line to allocate a real relay, then assert on body.relayed.
+# @auth basic {{turnUser}} {{secret(turnPassword)}}
+TURN turns:turn.cloudflare.com:5349
+
+> assert status == 401
+> assert body.realm != null
+> print body.relayed ?? "relay needs credentials for " + body.realm
+
+### Signaling
+# Peers usually swap SDP over a WebSocket. This one bounces the offer straight
+# back, which is enough to check the messages survive the trip.
+WS wss://ws.postman-echo.com/raw
+
+> let offer = { type: "offer", sdp: "v=0\r\no=- " + randomInt(100000, 999999) + " 2 IN IP4 127.0.0.1\r\ns=-\r\nt=0 0\r\n", from: uuid() }
+> send offer
+> receive 5s
+> assert data.type == "offer"
+> assert data.sdp == offer.sdp
+> close

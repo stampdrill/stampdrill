@@ -1,0 +1,48 @@
+# GRAPHQL requests are sent as a JSON POST. Put variables, as JSON, after a
+# blank line under the query.
+
+@countries = https://countries.trevorblades.com/graphql
+
+### Country
+GRAPHQL {{countries}}
+
+query Country($code: ID!) {
+  country(code: $code) {
+    name
+    capital
+    emoji
+    currency
+    languages { name }
+  }
+}
+
+{ "code": "IQ" }
+
+> assert body.errors == null
+> assert body.data.country.capital == "Baghdad"
+> print body.data.country.emoji + " " + body.data.country.name
+
+### Continents
+GRAPHQL {{countries}}
+
+{
+  continents {
+    code
+    name
+  }
+}
+
+> assert length(body.data.continents) == 7
+> print join(map(body.data.continents, c => c.name), ", ")
+
+### Rick and Morty
+GRAPHQL https://rickandmortyapi.com/graphql
+
+query Character($id: ID!) {
+  character(id: $id) { name species origin { name } }
+}
+
+{ "id": {{randomInt(1, 20)}} }
+
+> assert body.data.character.name != null
+> print body.data.character.name + " from " + body.data.character.origin.name

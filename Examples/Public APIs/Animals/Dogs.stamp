@@ -1,0 +1,22 @@
+# dog.ceo, driven by the "breed" dimension.
+
+@breedUrl = {{dogs}}/breed/{{breed}}
+
+### Random dog
+GET {{dogs}}/breeds/image/random
+
+> assert body.status == "success"
+> print body.message
+
+### Pictures of the breed
+GET {{breedUrl}}/images/random/3
+
+> assert status == 200
+> assert body.message.length == 3
+> assert body.message[0] contains breed
+
+### All breeds
+GET {{dogs}}/breeds/list/all
+
+> assert keys(body.message) contains breed
+> print length(body.message) + " breeds"

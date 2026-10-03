@@ -1,0 +1,2 @@
+Hello from Stampdrill.
+This file is uploaded as part of a multipart form.

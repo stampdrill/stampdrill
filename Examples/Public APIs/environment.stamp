@@ -1,0 +1,37 @@
+# Dimensions are what requests vary along. Pick a value for each one in the
+# toolbar, or on the command line:
+#
+#   stampdrill run . user=michael breed=pug page=large
+
+dimension user = emily, michael, sophia
+dimension breed = husky, beagle, pug
+dimension page = small, large
+
+vars {
+  dummyjson = "https://dummyjson.com"
+  placeholder = "https://jsonplaceholder.typicode.com"
+  httpbin = "https://httpbin.org"
+  dogs = "https://dog.ceo/api"
+  cats = "https://catfact.ninja"
+  limit = 5
+}
+
+vars page=large {
+  limit = 25
+}
+
+# Demo accounts published by dummyjson.com.
+vars user=emily {
+  username = "emilys"
+  password = secret("emilyspass")
+}
+
+vars user=michael {
+  username = "michaelw"
+  password = secret("michaelwpass")
+}
+
+vars user=sophia {
+  username = "sophiab"
+  password = secret("sophiabpass")
+}

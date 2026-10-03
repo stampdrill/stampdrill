@@ -1,0 +1,37 @@
+# Responses of different kinds, to see how each one is shown.
+# Save any body with "Save Body…" under the response.
+
+### PNG image
+GET {{httpbin}}/image/png
+
+> assert headers["content-type"] == "image/png"
+
+### SVG image
+GET {{httpbin}}/image/svg
+
+### Dog photo
+@needs randomDog
+GET {{randomDog.body.message}}
+
+> assert status == 200
+
+### HTML page
+GET {{httpbin}}/html
+
+> assert text contains "Herman Melville"
+
+### XML document
+GET {{httpbin}}/xml
+
+### PDF download
+GET https://www.w3.org/WAI/ER/tests/xhtml/testfiles/resources/pdf/dummy.pdf
+
+> assert headers["content-type"] contains "pdf"
+
+### Attachment
+GET {{httpbin}}/response-headers?Content-Type=text/csv&Content-Disposition=attachment%3B%20filename%3D%22report.csv%22
+
+### Random bytes
+GET {{httpbin}}/bytes/512
+
+> assert size == 512

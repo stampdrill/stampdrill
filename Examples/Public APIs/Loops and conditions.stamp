@@ -1,0 +1,89 @@
+# Everything a plan can do besides running one request after another: loops,
+# conditions, repetition, retries, and a row of data per run.
+#
+#   stampdrill test "Loops and conditions.stamp"
+
+plan EveryBreedTwice {
+  tags loops
+
+  # `for each` walks a list, and `index` counts from 0.
+  for each breed in ["husky", "beagle", "pug"] {
+    step "Pictures of a breed" {
+      run breedPictures with breed = breed
+      expect status == 200
+      expect all(body.message, url => url contains breed)
+      print (index + 1) + ". " + breed + ": " + body.message.length + " pictures"
+    }
+  }
+
+  # `repeat` runs a block a fixed number of times. The same cat fact should
+  # never come back twice in a row from a healthy API.
+  let seen = []
+  repeat 3 {
+    step "A fact" {
+      run catFact
+      expect status == 200
+      expect body.fact != ""
+      set seen = seen + [body.fact]
+    }
+  }
+  expect length(unique(seen)) > 1, "every fact was identical, which smells like a cache"
+}
+
+plan DependsOnTheEnvironment {
+  tags loops
+  matrix page = *
+
+  # `if` and `else` let one plan behave differently per dimension value, without
+  # copying it.
+  if page == "large" {
+    step "A large page is still fast" {
+      run listPosts
+      expect body.length == limit
+      expect time < 4000, "a large page took " + time + " ms"
+    }
+  } else {
+    step "A small page is tiny" {
+      run listPosts
+      expect body.length == limit
+      expect size < 20000
+    }
+  }
+}
+
+plan EveryCartFromTheFile {
+  tags loops
+  # One run per row of the CSV; the columns become variables. JSON arrays of
+  # objects work the same way.
+  data ./fixtures/carts.csv
+  # Flaky networks get three tries before the step is called failed.
+  retry 2 every 300ms
+
+  step "The cart has what the file expects" {
+    run cart with cartId = cartId
+    expect status == 200
+    expect body.id == cartId
+    expect body.totalProducts >= minimumItems, "cart " + cartId + " has " + body.totalProducts + " products"
+    print "cart " + cartId + " (" + currency + "): " + body.totalProducts + " products, " + body.total
+  }
+}
+
+### Breed pictures
+@name breedPictures
+@breed = husky
+GET {{dogs}}/breed/{{breed}}/images/random/3
+
+> assert status == 200
+
+### Cat fact
+@name catFact
+GET {{cats}}/fact
+
+> assert status == 200
+
+### Cart
+@name cart
+@cartId = 1
+GET {{dummyjson}}/carts/{{cartId}}
+
+> assert status == 200

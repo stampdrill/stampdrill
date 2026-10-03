@@ -1,0 +1,10 @@
+{
+  "name": "stampdrill",
+  "version": "1.4.0",
+  "description": "Write, edit and check Stampdrill .stamp files: HTTP requests, assertions, test plans, load tests and multi-dimensional environments.",
+  "author": { "name": "Samal Studios", "url": "https://stampdrill.com" },
+  "homepage": "https://stampdrill.com",
+  "repository": "https://github.com/stampdrill/stampdrill",
+  "license": "MIT",
+  "keywords": ["http", "api", "rest", "testing", "stamp", "stampdrill"]
+}

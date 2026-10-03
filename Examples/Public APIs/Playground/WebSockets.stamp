@@ -1,0 +1,26 @@
+# WS requests open a socket and play their script against it:
+#   send    writes a message (objects and arrays are sent as JSON)
+#   receive waits for the next message: `message` is its text, `data` its JSON
+#   wait    pauses, close hangs up
+# The whole conversation shows up under the response.
+
+### Echo
+WS wss://ws.postman-echo.com/raw
+
+> send json({ type: "hello", from: person(1).name, id: uuid() })
+> receive 5s
+> assert data.type == "hello"
+> assert data.from == person(1).name
+> send "ping"
+> receive 5s
+> assert message == "ping"
+> close
+
+### Greeting first
+WS wss://echo.websocket.org
+
+> receive 5s
+> assert message contains "Request served by"
+> send "The quick brown fox"
+> receive 5s
+> assert message == "The quick brown fox"

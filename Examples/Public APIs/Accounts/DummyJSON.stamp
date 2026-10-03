@@ -1,0 +1,42 @@
+# Log in once, then call the endpoints that need the token.
+# Switch accounts with the "user" dimension.
+
+### Log in
+POST {{dummyjson}}/auth/login
+Content-Type: application/json
+
+{
+  "username": "{{username}}",
+  "password": "{{password}}",
+  "expiresInMins": 30
+}
+
+> assert status == 200, "could not log in as " + username
+> set token = body.accessToken
+> set refreshToken = body.refreshToken
+> print "Signed in as " + body.firstName + " " + body.lastName
+
+### Current user
+@needs logIn
+@auth jwt {{token}}
+GET {{dummyjson}}/auth/me
+
+> assert status == 200
+> assert body.username == username
+
+### Carts
+@needs logIn
+@auth bearer {{token}}
+GET {{dummyjson}}/carts/user/{{logIn.body.id}}
+
+> assert status == 200
+> print body.total + " carts"
+
+### Refresh session
+@needs logIn
+POST {{dummyjson}}/auth/refresh
+
+{ "refreshToken": "{{refreshToken}}", "expiresInMins": 30 }
+
+> assert status == 200
+> set token = body.accessToken

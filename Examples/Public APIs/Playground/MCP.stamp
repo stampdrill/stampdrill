@@ -1,0 +1,39 @@
+# MCP requests talk to a Model Context Protocol server as a client would:
+# the handshake, then the script with the server's tools, resources and prompts.
+#   call(tool, arguments)   read(uri)   getPrompt(name, arguments)
+#   ping()   request(method, params)   notify(method, params)
+# Every message in either direction shows up under the response.
+
+### DeepWiki
+MCP https://mcp.deepwiki.com/mcp
+
+> assert server.serverInfo.name == "DeepWiki"
+> assert toolNames contains "read_wiki_structure"
+# A live server can change its tools, so check the shape without depending on one field.
+> let structure = find(tools, t => t.name == "read_wiki_structure")
+> assert structure.inputSchema.properties.repoName != null
+> let topics = call("read_wiki_structure", { repoName: "modelcontextprotocol/modelcontextprotocol" })
+> assert !topics.isError
+> assert topics.text != ""
+
+### Everything server
+# The reference server, started with npx; it needs Node.js, and the command-line
+# tool, since the sandboxed app can't start other programs.
+@sampling reply Sunny, 24°C
+@elicitation accept { "name": "Ada", "check": true, "email": "ada@example.com", "integer": 3, "number": 2.5, "enum": "value1" }
+@roots file:///tmp/project
+MCP stdio: npx -y @modelcontextprotocol/server-everything
+
+> assert call("echo", { message: "hi" }).text == "Echo: hi"
+> assert call("get-sum", { a: 2, b: 40 }).text contains "42"
+> let invalid = call("get-sum", { a: "two" })
+> assert invalid.isError
+> assert call("trigger-sampling-request", { prompt: "Weather?" }).text contains "Sunny, 24°C"
+> assert call("trigger-elicitation-request", {}).text contains "Ada"
+> assert call("get-roots-list", {}).text contains "file:///tmp/project"
+> assert read(resources[0].uri).contents.length == 1
+> assert promptNames contains "simple-prompt"
+> assert getPrompt("args-prompt", { city: "Paris" }).messages.length > 0
+> let slow = call("trigger-long-running-operation", { duration: 1, steps: 2 }, { progressToken: "steps" })
+> assert filter(notifications, n => n.method == "notifications/progress").length == 2
+> assert request("no/such/method").error.code == -32601
