@@ -1,0 +1,42 @@
+{
+  "name": "stampdrill",
+  "displayName": "Stampdrill",
+  "description": "Syntax highlighting for Stampdrill .stamp HTTP request files.",
+  "version": "1.4.0",
+  "publisher": "StampDrill",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/stampdrill/stampdrill",
+    "directory": "editors/vscode"
+  },
+  "homepage": "https://stampdrill.com",
+  "engines": {
+    "vscode": "^1.80.0"
+  },
+  "categories": [
+    "Programming Languages"
+  ],
+  "contributes": {
+    "languages": [
+      {
+        "id": "stamp",
+        "aliases": [
+          "Stamp",
+          "stamp"
+        ],
+        "extensions": [
+          ".stamp"
+        ],
+        "configuration": "./language-configuration.json"
+      }
+    ],
+    "grammars": [
+      {
+        "language": "stamp",
+        "scopeName": "source.stamp",
+        "path": "./syntaxes/stamp.tmLanguage.json"
+      }
+    ]
+  }
+}

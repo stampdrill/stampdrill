@@ -1,0 +1,64 @@
+# Test plans. Run them from the Plans section of the sidebar, or with:
+#
+#   stampdrill test . --html report.html
+
+plan BlogSmoke {
+  tags smoke
+  matrix page = *
+
+  step "List posts" {
+    run listPosts
+    expect status == 200
+    expect body.length == limit
+    expect time < 3000, "listing took " + time + " ms"
+    set firstId = body[0].id
+  }
+
+  step "Read the first post and its comments" {
+    run getAPost with postId = firstId
+    expect body.id == firstId
+    run comments with postId = firstId
+    expect all(body, comment => comment.postId == firstId)
+  }
+
+  step "Write" {
+    run createAPost
+    expect status == 201
+    run updateAPost
+    run deleteAPost
+  }
+}
+
+plan AccountsForEveryUser {
+  tags auth
+  matrix user = *
+  parallel 3
+
+  setup { run logIn }
+
+  step "Profile matches the account" {
+    run currentUser
+    expect body.username == username
+    expect body.email contains "@"
+  }
+
+  step "Refresh keeps the session" {
+    run refreshSession
+    expect status == 200
+    run currentUser
+    expect status == 200
+  }
+}
+
+plan DogBreeds {
+  tags animals
+  parallel 3
+
+  for each breed in ["husky", "beagle", "pug"] {
+    step "Pictures of a breed" {
+      run picturesOfTheBreed with breed = breed
+      expect body.message.length == 3
+      expect all(body.message, url => url contains breed)
+    }
+  }
+}

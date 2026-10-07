@@ -1,0 +1,15 @@
+@pokemon = pikachu
+
+### Pokémon
+GET https://pokeapi.co/api/v2/pokemon/{{pokemon}}
+
+> assert status == 200
+> assert body.name == pokemon
+> print body.name + " weighs " + body.weight / 10 + " kg"
+
+### Joke
+GET https://official-joke-api.appspot.com/random_joke
+
+> assert body.setup != null
+> print body.setup
+> print body.punchline

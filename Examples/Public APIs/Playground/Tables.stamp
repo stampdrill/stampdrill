@@ -1,0 +1,21 @@
+# Responses shaped like a table get a Table view: CSV, JSON arrays of
+# objects, and JSON objects that hold one (like "products" below). Sort by
+# clicking a column, filter rows, and copy selected rows with ⌘C.
+
+### GDP by country
+GET https://raw.githubusercontent.com/datasets/gdp/main/data/gdp.csv
+
+> assert status == 200
+> assert text contains "Country Name"
+
+### Products
+GET https://dummyjson.com/products?limit=50&select=title,brand,category,price,rating,stock
+
+> assert status == 200
+> assert body.products.length == 50
+
+### Users with addresses
+# Nested objects become columns like address.city.
+GET https://jsonplaceholder.typicode.com/users
+
+> assert body.length == 10

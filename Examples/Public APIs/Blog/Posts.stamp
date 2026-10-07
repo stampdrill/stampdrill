@@ -1,0 +1,48 @@
+# JSONPlaceholder fakes a blog API. Writes are accepted but not stored.
+
+### List posts
+GET {{placeholder}}/posts?_limit={{limit}}
+
+> assert status == 200
+> assert body.length == limit
+> set postId = body[0].id
+
+### Get a post
+@needs listPosts
+GET {{placeholder}}/posts/{{postId}}
+
+> assert status == 200
+> assert body.id == postId
+
+### Comments
+@needs listPosts
+GET {{placeholder}}/posts/{{postId}}/comments
+
+> assert body.length > 0
+> assert body[0].email contains "@"
+
+### Create a post
+POST {{placeholder}}/posts
+Content-Type: application/json; charset=utf-8
+
+{
+  "title": "{{fake.word}} and {{fake.word}}",
+  "body": "Written by {{fake.name}}",
+  "userId": {{randomInt(1, 10)}}
+}
+
+> assert status == 201
+> assert body.id == 101
+
+### Update a post
+PATCH {{placeholder}}/posts/1
+
+{ "title": "Edited at {{now()}}" }
+
+> assert status == 200
+> assert body.title contains "Edited"
+
+### Delete a post
+DELETE {{placeholder}}/posts/1
+
+> assert status == 200

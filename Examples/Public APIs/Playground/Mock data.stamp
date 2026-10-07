@@ -1,0 +1,42 @@
+# Sample data for payloads. Change the seed to get a different, but again
+# repeatable, set of values. Remove it to get new values on every send.
+
+@seed = stampdrill-demo
+
+fn slugOf(text) = lower(replace(text, " ", "-"))
+
+### Person with related fields
+POST {{httpbin}}/anything/users
+
+{
+  "name": "{{person(7).name}}",
+  "email": "{{person(7).email}}",
+  "city": "{{person(7).address.city}}",
+  "handle": "{{slugOf(person(7).name)}}"
+}
+
+> assert body.json.email == person(7).email
+> save lastUserEmail = body.json.email
+
+### Fake values
+POST {{httpbin}}/anything/orders
+
+{
+  "id": "{{uuid()}}",
+  "product": "{{fake.product}}",
+  "price": {{fake.price}},
+  "currency": "{{fake.currency}}",
+  "shipTo": {{json(fake.address)}},
+  "note": "{{fake.sentence}}"
+}
+
+> assert body.json.price > 0
+
+### From a JSON Schema
+POST {{httpbin}}/anything/users
+
+{{ json(mock(readJson("./schemas/user.json"), "user-1")) }}
+
+> assert ["admin", "editor", "viewer"] contains body.json.role
+> assert all(body.json.tags, tag => length(tag) > 0)
+> print "mocked " + body.json.firstName + " " + body.json.lastName
