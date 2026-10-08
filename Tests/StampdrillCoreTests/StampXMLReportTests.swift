@@ -193,8 +193,13 @@ struct StampXMLReportTests {
     @Test func theStylesheetTurnsItIntoAPage() async throws {
         var url = URL(fileURLWithPath: #filePath)
         for _ in 0..<4 { url = url.deletingLastPathComponent() }
-        let stylesheet = url.appendingPathComponent("Public/report/\(PlanReportExport.stampXMLVersion)/style.xsl")
-        try #require(FileManager.default.fileExists(atPath: stylesheet.path), "the published stylesheet moved: \(stylesheet.path)")
+        // The published stylesheet is one file with the CSS inside it, put there by
+        // website/build.py; the repository keeps the two parts apart.
+        let folder = url.appendingPathComponent("Public/report/\(PlanReportExport.stampXMLVersion)")
+        let template = try String(contentsOf: folder.appendingPathComponent("style.xsl.in"), encoding: .utf8)
+        let css = try String(contentsOf: folder.appendingPathComponent("report.css"), encoding: .utf8)
+        try #require(template.contains("/* REPORT_CSS */"), "style.xsl.in has nowhere to put the CSS")
+        let stylesheet = template.replacingOccurrences(of: "/* REPORT_CSS */", with: css)
 
         let xml = PlanReportExport.stampXML(plans: [try await report("""
         plan Checkout {
@@ -204,7 +209,7 @@ struct StampXMLReportTests {
           }
         }
         """)], generator: "stamp 1.0")
-        let page = try document(xml).object(byApplyingXSLTString: String(contentsOf: stylesheet, encoding: .utf8), arguments: nil)
+        let page = try document(xml).object(byApplyingXSLTString: stylesheet, arguments: nil)
         let html = String(decoding: (page as? XMLDocument)?.xmlData ?? Data(), as: UTF8.self)
 
         #expect(html.contains("Stampdrill test report"))
@@ -225,7 +230,7 @@ struct StampXMLReportTests {
         POST https://shop.example/orders?{{orderId}}
         """]), transport: RacyBank(delay: .zero)).run(PlanReference(path: "shop.stamp", name: "Orders"))
         let loadPage = try document(PlanReportExport.stampXML(loads: [load], generator: "stamp 1.0"))
-            .object(byApplyingXSLTString: String(contentsOf: stylesheet, encoding: .utf8), arguments: nil)
+            .object(byApplyingXSLTString: stylesheet, arguments: nil)
         let loadHTML = String(decoding: (loadPage as? XMLDocument)?.xmlData ?? Data(), as: UTF8.self)
 
         #expect(loadHTML.contains("<svg"), "a load test is charted, not just listed")
