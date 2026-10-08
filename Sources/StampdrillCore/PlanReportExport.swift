@@ -228,10 +228,172 @@ public enum PlanReportExport {
         }
     }
 
+    // MARK: Stamp XML
+
+    /// The version of the XML format. It is also in the address of the stylesheet,
+    /// so a report written today keeps rendering the way it did today.
+    public static let stampXMLVersion = "0.1"
+    public static let stampXMLStylesheet = "https://stampdrill.com/report/\(stampXMLVersion)/style.xsl"
+
+    /// One file for both readers: a machine parses the elements, a browser applies
+    /// the stylesheet named in the processing instruction and draws the page.
+    ///
+    /// The XML carries measurements and nothing about how they look. Test plans,
+    /// the actors of a `concurrently` block and load tests all go in the same
+    /// document, so one run is one file.
+    public static func stampXML(
+        plans: [PlanReport] = [],
+        loads: [LoadReport] = [],
+        generator: String,
+        stylesheet: String = stampXMLStylesheet
+    ) -> String {
+        let counts = plans.map(\.expectationCounts)
+        let checksPassed = counts.map(\.passed).reduce(0, +) + loads.map(\.snapshot.checksPassed).reduce(0, +)
+        let checksFailed = counts.map(\.failed).reduce(0, +) + loads.map(\.snapshot.checksFailed).reduce(0, +)
+        let requests = plans.map(\.runs.count).reduce(0, +) + loads.map(\.snapshot.requests).reduce(0, +)
+        let failed = plans.filter { !$0.passed }.count + loads.filter { !$0.passed }.count
+        let started = (plans.map(\.startedAt) + loads.map(\.startedAt)).min() ?? Date()
+        let duration = plans.map(\.duration).reduce(0, +) + loads.map(\.snapshot.elapsed).reduce(0, +)
+
+        var xml = #"<?xml version="1.0" encoding="UTF-8"?>"# + "\n"
+        xml += #"<?xml-stylesheet type="text/xsl" href="\#(escape(stylesheet))"?>"# + "\n"
+        xml += #"<report version="\#(stampXMLVersion)" generator="\#(attribute(generator))" startedAt="\#(stamp(started))" ms="\#(wholeMilliseconds(duration))" passed="\#(flag(failed == 0))">"# + "\n"
+        xml += #"  <summary plans="\#(plans.count)" loads="\#(loads.count)" failed="\#(failed)" iterations="\#(plans.flatMap(\.iterations).count)" requests="\#(requests)" checks="\#(checksPassed + checksFailed)" checksFailed="\#(checksFailed)"/>"# + "\n"
+        xml += plans.map(planXML).joined()
+        xml += loads.map(loadXML).joined()
+        xml += "</report>\n"
+        return xml
+    }
+
+    private static func planXML(_ report: PlanReport) -> String {
+        let counts = report.expectationCounts
+        var xml = #"  <plan name="\#(attribute(report.plan.name))" file="\#(attribute(report.plan.path))" passed="\#(flag(report.passed))" startedAt="\#(stamp(report.startedAt))" ms="\#(wholeMilliseconds(report.duration))" iterations="\#(report.iterations.count)" requests="\#(report.runs.count)" checks="\#(counts.passed + counts.failed)" checksFailed="\#(counts.failed)">"# + "\n"
+        for iteration in report.iterations {
+            xml += #"    <iteration index="\#(iteration.index)" label="\#(attribute(iteration.label))" passed="\#(flag(iteration.passed))" startedAt="\#(stamp(iteration.startedAt))" ms="\#(wholeMilliseconds(iteration.duration))">"# + "\n"
+            for (name, value) in iteration.selection.sorted(by: { $0.key < $1.key }) {
+                xml += #"      <dimension name="\#(attribute(name))" value="\#(attribute(value))"/>"# + "\n"
+            }
+            xml += iteration.events.map { eventXML($0, since: iteration.startedAt, indent: "      ") }.joined()
+            xml += "    </iteration>\n"
+        }
+        if !report.timings.isEmpty {
+            xml += "    <timings>\n"
+            for timing in report.timings {
+                xml += #"      <timing name="\#(attribute(timing.name))" count="\#(timing.count)" min="\#(wholeMilliseconds(timing.min))" average="\#(wholeMilliseconds(timing.average))" p95="\#(wholeMilliseconds(timing.p95))"/>"# + "\n"
+            }
+            xml += "    </timings>\n"
+        }
+        return xml + "  </plan>\n"
+    }
+
+    /// A load test: the totals, the thresholds that decided it, the second by
+    /// second series a chart is drawn from, and what went wrong.
+    private static func loadXML(_ report: LoadReport) -> String {
+        let s = report.snapshot
+        var xml = #"  <load name="\#(attribute(report.plan.name))" file="\#(attribute(report.plan.path))" passed="\#(flag(report.passed))" startedAt="\#(stamp(report.startedAt))" ms="\#(wholeMilliseconds(s.elapsed))" users="\#(s.series.map(\.users).max() ?? s.activeUsers)" iterations="\#(s.iterations)">"# + "\n"
+        xml += #"    <metrics requests="\#(s.requests)" failed="\#(s.failedRequests)" errorRate="\#(number(s.errorRate))" rps="\#(number(s.requestsPerSecond))" checks="\#(s.checksPassed + s.checksFailed)" checksFailed="\#(s.checksFailed)" p50="\#(number(s.p50))" p90="\#(number(s.p90))" p95="\#(number(s.p95))" p99="\#(number(s.p99))" avg="\#(number(s.average))" max="\#(number(s.maximum))"/>"# + "\n"
+        if !report.thresholds.isEmpty {
+            xml += "    <thresholds>\n"
+            for result in report.thresholds {
+                xml += #"      <threshold metric="\#(result.threshold.metric.rawValue)" comparison="\#(attribute(result.threshold.comparison.rawValue))" value="\#(number(result.threshold.value))" measured="\#(number(result.measured))" passed="\#(flag(result.passed))" source="\#(attribute(result.threshold.source))"/>"# + "\n"
+            }
+            xml += "    </thresholds>\n"
+        }
+        if !s.series.isEmpty {
+            xml += "    <series>\n"
+            for second in s.series {
+                xml += #"      <second at="\#(second.second)" requests="\#(second.requests)" errors="\#(second.errors)" p95="\#(number(second.p95))" users="\#(second.users)"/>"# + "\n"
+            }
+            xml += "    </series>\n"
+        }
+        if !s.perRequest.isEmpty {
+            xml += "    <requests>\n"
+            for stats in s.perRequest {
+                xml += #"      <request name="\#(attribute(stats.name))" count="\#(stats.count)" failures="\#(stats.failures)" average="\#(number(stats.average))" p95="\#(number(stats.p95))"/>"# + "\n"
+            }
+            xml += "    </requests>\n"
+        }
+        if !report.failures.isEmpty {
+            xml += "    <failures>\n"
+            for failure in report.failures {
+                xml += #"      <failure count="\#(failure.count)">\#(escape(failure.message))</failure>"# + "\n"
+            }
+            xml += "    </failures>\n"
+        }
+        return xml + "  </load>\n"
+    }
+
+    private static func eventXML(_ event: PlanEvent, since: Date, indent: String) -> String {
+        switch event.kind {
+        case .run(let result):
+            var xml = #"\#(indent)<request name="\#(attribute(result.reference.name))" method="\#(attribute(result.request?.method ?? ""))""#
+            if let response = result.response {
+                xml += #" url="\#(attribute(response.url.absoluteString))" status="\#(response.statusCode)" ms="\#(wholeMilliseconds(response.duration))""#
+            }
+            // Where this request sits in the iteration, so actors that fired together look like it.
+            xml += #" at="\#(max(0, wholeMilliseconds(result.startedAt.timeIntervalSince(since))))" passed="\#(flag(result.passed))""#
+            if let error = result.error { xml += #" error="\#(attribute(error))""# }
+            guard !result.assertions.isEmpty else { return xml + "/>\n" }
+            xml += ">\n"
+            for assertion in result.assertions {
+                xml += #"\#(indent)  <check source="\#(attribute(assertion.source))" line="\#(assertion.line)" passed="\#(flag(assertion.passed))""#
+                xml += assertion.message.map { #" message="\#(attribute($0))""# } ?? ""
+                xml += "/>\n"
+            }
+            return xml + "\(indent)</request>\n"
+        case .expectation(let source, let passed, let message):
+            var xml = #"\#(indent)<expect source="\#(attribute(source))" line="\#(event.line)" passed="\#(flag(passed))""#
+            xml += message.map { #" message="\#(attribute($0))""# } ?? ""
+            return xml + "/>\n"
+        case .step(let title, let children, let attempts):
+            let inner = children.map { eventXML($0, since: since, indent: indent + "  ") }.joined()
+            switch event.concurrency {
+            case .group(let actors):
+                var xml = #"\#(indent)<concurrently actors="\#(actors)" title="\#(attribute(title))" passed="\#(flag(event.passed))" ms="\#(wholeMilliseconds(event.duration))">"# + "\n"
+                return xml + inner + "\(indent)</concurrently>\n"
+            case .actor(let index):
+                let xml = #"\#(indent)<actor index="\#(index)" passed="\#(flag(event.passed))" ms="\#(wholeMilliseconds(event.duration))">"# + "\n"
+                return xml + inner + "\(indent)</actor>\n"
+            case nil:
+                let xml = #"\#(indent)<step title="\#(attribute(title))" attempts="\#(attempts)" passed="\#(flag(event.passed))" ms="\#(wholeMilliseconds(event.duration))">"# + "\n"
+                return xml + inner + "\(indent)</step>\n"
+            }
+        case .print(let text):
+            return "\(indent)<print>\(escape(text))</print>\n"
+        case .failure(let message):
+            return #"\#(indent)<failure line="\#(event.line)">\#(escape(message))</failure>"# + "\n"
+        }
+    }
+
+    /// Whole milliseconds: small enough to read, precise enough to compare runs.
+    private static func wholeMilliseconds(_ interval: TimeInterval) -> Int {
+        Int((interval * 1000).rounded())
+    }
+
+    /// A measurement with two decimals at most, and no trailing zeros to read past.
+    private static func number(_ value: Double) -> String {
+        value == value.rounded() ? String(Int(value)) : String(format: "%.2f", value)
+    }
+
+    private static func flag(_ value: Bool) -> String { value ? "true" : "false" }
+
+    private static func stamp(_ date: Date) -> String { date.formatted(.iso8601) }
+
+    /// Attribute text, with the line breaks kept: a parser turns a raw newline
+    /// inside an attribute into a space, so an assertion message would lose its shape.
+    private static func attribute(_ text: String) -> String {
+        escape(text)
+            .replacingOccurrences(of: "\r\n", with: "&#10;")
+            .replacingOccurrences(of: "\n", with: "&#10;")
+            .replacingOccurrences(of: "\r", with: "&#10;")
+            .replacingOccurrences(of: "\t", with: "&#9;")
+    }
+
     // MARK: Helpers
 
     private static func escape(_ text: String) -> String {
-        text.replacingOccurrences(of: "&", with: "&amp;")
+        clean(text)
+            .replacingOccurrences(of: "&", with: "&amp;")
             .replacingOccurrences(of: "<", with: "&lt;")
             .replacingOccurrences(of: ">", with: "&gt;")
             .replacingOccurrences(of: "\"", with: "&quot;")
@@ -243,5 +405,10 @@ public enum PlanReportExport {
 
     private static func milliseconds(_ interval: TimeInterval) -> String {
         interval < 1 ? "\(Int((interval * 1000).rounded())) ms" : String(format: "%.2f s", interval)
+    }
+
+    /// Characters XML 1.0 has no way to carry, dropped rather than written out broken.
+    private static func clean(_ text: String) -> String {
+        String(text.unicodeScalars.filter { $0 == "\n" || $0 == "\r" || $0 == "\t" || ($0.value >= 0x20 && $0.value != 0xFFFE && $0.value != 0xFFFF) })
     }
 }

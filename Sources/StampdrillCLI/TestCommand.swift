@@ -61,6 +61,9 @@ struct TestCommand {
         }
 
         try write(PlanReportExport.junit(reports), to: arguments.junitPath)
+        try write(PlanReportExport.stampXML(plans: reports, generator: "\(Stampdrill.name) \(Stampdrill.version)",
+                                           stylesheet: arguments.stampXMLStylesheet ?? PlanReportExport.stampXMLStylesheet),
+                  to: arguments.stampXMLPath)
         try write(PlanReportExport.html(reports), to: arguments.htmlPath)
         try write(PlanReportExport.json(reports), to: arguments.jsonPath)
 

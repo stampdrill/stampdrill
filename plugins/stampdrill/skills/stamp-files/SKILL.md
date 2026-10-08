@@ -230,6 +230,7 @@ Options worth knowing:
 | `--show-secrets` | Unmask `secret(...)` values; avoid in shared logs |
 | `-o, --output path` | Write the last response body to a file |
 | `--junit`, `--html`, `--json` | Reports for CI |
+| `--stamp-xml` | One report for both: XML to parse, charted in a browser |
 | `--no-color` | Plain output, better for parsing |
 
 Exit codes: **0** all good, **1** a check or threshold failed, **2** a file has

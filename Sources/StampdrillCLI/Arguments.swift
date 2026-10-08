@@ -17,6 +17,11 @@ struct Arguments {
     var savesVariables = true
     var tags: Set<String> = []
     var junitPath: String?
+    var stampXMLPath: String?
+    /// Where the browser should fetch the stylesheet from. A browser only applies
+    /// one that comes from the same place as the report, so a report that is served
+    /// somewhere else needs its own copy of it.
+    var stampXMLStylesheet: String?
     var htmlPath: String?
     var jsonPath: String?
     var outputPath: String?
@@ -47,6 +52,10 @@ struct Arguments {
                 tags.formUnion((remaining.popFirst() ?? "").split(separator: ",").map { $0.trimmingCharacters(in: .whitespaces) })
             case "--junit":
                 junitPath = try value(remaining.popFirst(), for: argument)
+            case "--stamp-xml":
+                stampXMLPath = try value(remaining.popFirst(), for: argument)
+            case "--stamp-xsl":
+                stampXMLStylesheet = try value(remaining.popFirst(), for: argument)
             case "--html":
                 htmlPath = try value(remaining.popFirst(), for: argument)
             case "-o", "--output":

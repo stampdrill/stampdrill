@@ -17,8 +17,8 @@ struct Stampdrill {
 
     USAGE
       \(name) run [path] [request...] [dimension=value...] [options]
-      \(name) test [path] [plan...] [--tags smoke] [--junit report.xml] [--html report.html]
-      \(name) load [path] [test...] [--json report.json]
+      \(name) test [path] [plan...] [--tags smoke] [--junit report.xml] [--stamp-xml report.xml]
+      \(name) load [path] [test...] [--json report.json] [--stamp-xml report.xml]
       \(name) list [path]
       \(name) check [path]
       \(name) env [path] [dimension=value...]
@@ -46,6 +46,8 @@ struct Stampdrill {
       --no-save                    Don't write 'save' results to environment.local.stamp
       --tags a,b                   Only run plans with one of these tags
       --junit / --html / --json F  Write a test report to F
+      --stamp-xml F                Write a report a machine reads and a browser charts
+      --stamp-xsl href             Where that report should fetch its stylesheet from
       --no-color                   Plain output
     """
     }

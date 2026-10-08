@@ -209,6 +209,7 @@ $ stamp test api
 
 ```bash
 stamp test api --junit reports/junit.xml   # for CI
+stamp test api --stamp-xml reports/api.xml # one file: parse it, or open it in a browser
 stamp test api --html reports/report.html  # to read
 stamp env api environment=qa region=eu     # what those dimensions resolve to
 ```
@@ -384,6 +385,7 @@ repository; `StampdrillCore` is the engine it uses, and MPL lets you build your 
 | | |
 |---|---|
 | `Sources/`, `Tests/`, `Package.swift` | [Mozilla Public License 2.0](LICENSE) |
+| `report/` | [Mozilla Public License 2.0](LICENSE) |
 | `docs/`, `Examples/`, `plugins/`, `editors/` | [MIT](LICENSE-MIT) |
 
 MPL is file level copyleft: you may use the engine in a closed product, including commercially, and only

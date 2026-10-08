@@ -21,10 +21,18 @@ public struct PlanEvent: Identifiable, Sendable {
         case failure(String)
     }
 
+    /// What a `concurrently` block adds to the steps it produces, so a report can
+    /// show actors side by side instead of as plain nested steps.
+    public enum Concurrency: Sendable, Hashable {
+        case group(actors: Int)
+        case actor(index: Int)
+    }
+
     public let id = UUID()
     public var kind: Kind
     public var line: Int
     public var duration: TimeInterval = 0
+    public var concurrency: Concurrency?
 
     public var passed: Bool {
         switch kind {
@@ -436,9 +444,9 @@ final class Execution: @unchecked Sendable {
                 }
                 locals["results"] = .array(actors.map { $0.2 ?? .null })
                 let events = actors.map { index, events, _ in
-                    PlanEvent(kind: .step(title: "actor \(index)", events: events, attempts: 1), line: statement.line)
+                    PlanEvent(kind: .step(title: "actor \(index)", events: events, attempts: 1), line: statement.line, concurrency: .actor(index: index))
                 }
-                return [timed(PlanEvent(kind: .step(title: "\(count) at once", events: events, attempts: 1), line: statement.line))]
+                return [timed(PlanEvent(kind: .step(title: "\(count) at once", events: events, attempts: 1), line: statement.line, concurrency: .group(actors: count)))]
             }
         } catch {
             return [PlanEvent(kind: .failure("line \(statement.line): \(error.message)"), line: statement.line)]
