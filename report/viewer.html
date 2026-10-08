@@ -1,0 +1,109 @@
+<!doctype html>
+<!--
+  Opens a Stampdrill test report in a browser that no longer applies XSLT.
+
+  The file is read in the page and drawn there. Nothing is uploaded, and the page
+  fetches nothing except its own stylesheet and script.
+
+  Copyright 2026 Siamand Maroufi. This Source Code Form is subject to the terms of
+  the Mozilla Public License, v. 2.0. If a copy of the MPL was not distributed with
+  this file, You can obtain one at https://mozilla.org/MPL/2.0/.
+-->
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Open a report, Stampdrill</title>
+<meta name="description" content="Open a Stampdrill test report (.xml) and read it as a page: plans, checks, race conditions and load tests with their charts. The file stays in your browser.">
+<meta name="color-scheme" content="light dark">
+<link rel="icon" href="/favicon.ico" sizes="48x48">
+<link rel="stylesheet" href="/report/0.1/report.css">
+<style>
+.opener { border: 2px dashed var(--line); border-radius: var(--radius, 14px); padding: 2.5rem 1.5rem; text-align: center; margin: 2rem 0; }
+.opener.over { border-color: var(--accent); background: color-mix(in srgb, var(--accent) 6%, transparent); }
+.opener h2 { font-size: 1.15rem; margin: 0 0 .4rem; }
+.opener p { color: var(--dim); margin: 0 0 1.2rem; }
+.opener input { display: none; }
+.opener label {
+  display: inline-block; cursor: pointer; border-radius: 999px; padding: .45rem 1.1rem;
+  background: var(--accent); color: #fff; font-weight: 600; font-size: .92rem;
+}
+.note { color: var(--faint); font-size: .85rem; }
+.note code { color: var(--dim); }
+.problem { color: var(--bad); font-weight: 600; }
+.back { display: inline-block; margin-top: 1.5rem; font-size: .85rem; }
+a { color: var(--accent); }
+</style>
+</head>
+<body>
+<div class="wrap" id="page">
+  <h1>Open a report</h1>
+  <p class="meta">A report written by <code>stamp test --stamp-xml</code> or <code>stamp load --stamp-xml</code>. It is read here in your browser and never uploaded.</p>
+  <div class="opener" id="drop">
+    <h2>Drop the .xml file here</h2>
+    <p>or</p>
+    <label for="file">Choose a file</label>
+    <input type="file" id="file" accept=".xml,text/xml,application/xml">
+  </div>
+  <p class="note">
+    Browsers are removing the stylesheet that used to draw these reports in place, so this page does the same job in
+    the page itself. Nothing about the report changes: it is the same XML a build server parses.
+    The <a href="https://github.com/stampdrill/stampdrill/tree/main/report">renderer</a> is open source.
+  </p>
+</div>
+<script type="module">
+import { render } from "/report/0.1/report.js";
+
+const page = document.getElementById("page");
+const drop = document.getElementById("drop");
+const file = document.getElementById("file");
+
+function show(xmlText, name) {
+  const xml = new DOMParser().parseFromString(xmlText, "application/xml");
+  const failure = xml.querySelector("parsererror");
+  if (failure) throw new Error("that file is not valid XML");
+  const drawn = render(xml);
+  document.body.replaceChildren(drawn);
+  if (name) document.title = name + ", Stampdrill report";
+}
+
+function problem(message) {
+  const line = document.createElement("p");
+  line.className = "problem";
+  line.textContent = message;
+  drop.after(line);
+  setTimeout(() => line.remove(), 6000);
+}
+
+function open(blob) {
+  const reader = new FileReader();
+  reader.onload = () => {
+    try { show(String(reader.result), blob.name); } catch (error) { problem(error.message); }
+  };
+  reader.readAsText(blob);
+}
+
+file.addEventListener("change", () => { if (file.files[0]) open(file.files[0]); });
+for (const name of ["dragenter", "dragover"]) {
+  drop.addEventListener(name, (event) => { event.preventDefault(); drop.classList.add("over"); });
+}
+for (const name of ["dragleave", "drop"]) {
+  drop.addEventListener(name, () => drop.classList.remove("over"));
+}
+drop.addEventListener("drop", (event) => {
+  event.preventDefault();
+  const dropped = event.dataTransfer.files[0];
+  if (dropped) open(dropped);
+});
+
+// ?url= opens a report that is already on the web, such as a build artifact.
+const wanted = new URLSearchParams(location.search).get("url");
+if (wanted) {
+  fetch(wanted)
+    .then((response) => response.ok ? response.text() : Promise.reject(new Error(`that address answered ${response.status}`)))
+    .then((text) => show(text, wanted.split("/").pop()))
+    .catch((error) => problem(`${error.message}. A report on another site can only be opened here if that site allows it; otherwise download it and drop it in.`));
+}
+</script>
+</body>
+</html>
