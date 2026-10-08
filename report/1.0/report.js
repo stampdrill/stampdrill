@@ -1,14 +1,22 @@
 /* The custom elements a Stampdrill HTML test report is written in, and the page
    they draw. Every number is in the markup of the report itself, in attributes;
-   this module only reads that tree and lays it out, which is why the same file
+   this script only reads that tree and lays it out, which is why the same file
    a build server parses is the file a person opens. Nothing is uploaded, and
    nothing is fetched except the stylesheet beside this file.
+
+   It is a classic script on purpose, not a module: a module is always fetched
+   with CORS, and a report opened from disk has no origin to grant it.
 
    Copyright 2026 Siamand Maroufi. This Source Code Form is subject to the terms
    of the Mozilla Public License, v. 2.0. If a copy of the MPL was not
    distributed with this file, You can obtain one at https://mozilla.org/MPL/2.0/. */
 
-const STYLESHEET = new URL("./report.css", import.meta.url).href;
+(function () {
+"use strict";
+
+// Read while the script runs, which is the only time currentScript is set.
+const HERE = document.currentScript ? document.currentScript.src : location.href;
+const STYLESHEET = new URL("./report.css", HERE).href;
 const drawn = new WeakSet();
 
 // MARK: the elements
@@ -133,9 +141,10 @@ function plan(node) {
   const iterations = children(node, "iteration");
   for (const iteration of iterations) section.append(iterationBlock(iteration, iterations.length === 1));
   const timings = child(node, "timings");
-  if (timings) {
+  const timed = timings ? children(timings, "timing") : [];
+  if (timed.length) {
     section.append(element("h3", "section-title", "Average and p95, by request"));
-    section.append(bars(children(timings, "timing")));
+    section.append(bars(timed));
   }
   return section;
 }
@@ -216,7 +225,7 @@ function concurrently(node) {
 
   const span = Math.max(1, number(node, "ms"));
   const requests = descendants(node, "request");
-  const first = requests.length ? number(requests[0], "at") : 0;
+  const first = requests.length ? Math.min(...requests.map((request) => number(request, "at"))) : 0;
   const lanes = element("div", "lanes");
   for (const actor of children(node, "actor")) {
     const lane = element("div", "lane");
@@ -224,7 +233,7 @@ function concurrently(node) {
     const track = element("div", "lane-track");
     for (const request of descendants(actor, "request")) {
       const bar = element("span", "lane-bar" + (boolean(request, "passed") ? "" : " failed"));
-      const at = number(request, "at") - first;
+      const at = Math.max(0, number(request, "at") - first);
       bar.style.left = `${(at / span) * 100}%`;
       bar.style.width = `${(number(request, "ms") / span) * 100}%`;
       bar.title = `${request.getAttribute("name")}: started ${at} ms in, took ${request.getAttribute("ms")} ms`;
@@ -260,8 +269,8 @@ function load(node) {
               element("span", "pill " + passed(node), "load test"));
   section.append(head);
   section.append(paragraph("counts", [text([
-    `${node.getAttribute("users")} users`,
-    `${node.getAttribute("iterations")} iterations`,
+    count(node, "users", "user"),
+    count(node, "iterations", "iteration"),
     milliseconds(node.getAttribute("ms")),
   ].join(" · "))]));
 
@@ -295,16 +304,18 @@ function load(node) {
   }
 
   const requests = child(node, "requests");
-  if (requests) {
+  const stats = requests ? children(requests, "request-stats") : [];
+  if (stats.length) {
     section.append(element("h3", "section-title", "Average and p95, by request"));
-    section.append(bars(children(requests, "request-stats")));
+    section.append(bars(stats));
   }
 
   const thresholds = child(node, "thresholds");
-  if (thresholds) section.append(thresholdTable(children(thresholds, "threshold")));
+  const judged = thresholds ? children(thresholds, "threshold") : [];
+  if (judged.length) { section.append(thresholdTable(judged)); }
 
   const failures = child(node, "failures");
-  if (failures) {
+  if (failures && children(failures, "load-failure").length) {
     section.append(element("h3", "section-title", "What went wrong"));
     const items = element("ul");
     for (const failure of children(failures, "load-failure")) {
@@ -346,18 +357,22 @@ const SVG = "http://www.w3.org/2000/svg";
 /** One measurement a second, as a filled line. */
 function chart(rows, field, title, unit, tone = "var(--accent)") {
   const values = rows.map((row) => number(row, field));
-  const max = Math.max(1, ...values);
-  const step = 600 / Math.max(1, values.length - 1);
+  const peak = values.length ? Math.max(...values) : 0;
+  const max = Math.max(1, peak);
+  // A run of one second is one point, which no line can be drawn through: it is
+  // held flat across the chart instead.
+  const step = values.length > 1 ? 600 / (values.length - 1) : 600;
   const points = values.map((value, index) => [step * index, 130 - (value / max) * 110]);
+  if (points.length === 1) { points.push([600, points[0][1]]); }
 
   const box = element("div", "chart");
-  box.append(element("h3", null, title), element("p", "peak", `peak ${round(max, 2)}${unit}`));
+  box.append(element("h3", null, title), element("p", "peak", `peak ${round(peak, 2)}${unit}`));
 
   const svg = document.createElementNS(SVG, "svg");
   svg.setAttribute("viewBox", "0 0 600 140");
   svg.setAttribute("preserveAspectRatio", "none");
   svg.setAttribute("role", "img");
-  svg.setAttribute("aria-label", `${title}, peaking at ${round(max, 2)}${unit}`);
+  svg.setAttribute("aria-label", `${title}, peaking at ${round(peak, 2)}${unit}`);
   for (const y of [20, 75, 130]) {
     const line = document.createElementNS(SVG, "line");
     line.setAttribute("class", "grid");
@@ -371,7 +386,7 @@ function chart(rows, field, title, unit, tone = "var(--accent)") {
   const area = document.createElementNS(SVG, "polygon");
   area.setAttribute("fill", tone);
   area.setAttribute("opacity", "0.14");
-  area.setAttribute("points", `0,130 ${points.map(([x, y]) => `${x},${y}`).join(" ")} ${step * (values.length - 1)},130`);
+  area.setAttribute("points", `0,130 ${points.map(([x, y]) => `${x},${y}`).join(" ")} ${points[points.length - 1][0]},130`);
   const line = document.createElementNS(SVG, "polyline");
   line.setAttribute("fill", "none");
   line.setAttribute("stroke", tone);
@@ -483,3 +498,4 @@ define("stamp-report", StampReport);
 define("stamp-plan", StampPlan);
 define("stamp-load", StampLoad);
 for (const data of DATA) define("stamp-" + data, class extends StampData {});
+})();

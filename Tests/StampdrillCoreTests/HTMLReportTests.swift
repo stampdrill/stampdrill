@@ -73,11 +73,11 @@ struct HTMLReportTests {
         """)
         let page = PlanReportExport.html(plans: [plan], generator: "stamp")
         #expect(page.contains(#"<link rel="stylesheet" href="https://stampdrill.com/report/1.0/report.css" />"#))
-        #expect(page.contains(#"<script type="module" src="https://stampdrill.com/report/1.0/report.js"></script>"#))
+        #expect(page.contains(#"<script src="https://stampdrill.com/report/1.0/report.js" defer="defer"></script>"#))
 
         let local = PlanReportExport.html(plans: [plan], generator: "stamp", assets: "./assets/")
         #expect(local.contains(#"<link rel="stylesheet" href="./assets/report.css" />"#))
-        #expect(local.contains(#"<script type="module" src="./assets/report.js"></script>"#))
+        #expect(local.contains(#"<script src="./assets/report.js" defer="defer"></script>"#))
         #expect(!local.contains("stampdrill.com"), "a report kept elsewhere should not reach for the network")
     }
 

@@ -33,7 +33,7 @@ footer { border-top: 1px solid var(--line); padding-top: .9rem; }
   <p><code>stamp test . --html report.html</code> and <code>stamp load . --html report.html</code> write one file that
   a machine and a person read the same way. Every measurement is in the markup, in the attributes of elements such as
   <code>&lt;stamp-plan&gt;</code>, <code>&lt;stamp-request&gt;</code> and <code>&lt;stamp-check&gt;</code>: times in
-  whole milliseconds, verdicts as <code>true</code> and <code>false</code>, a load test's thresholds and its second by
+  milliseconds, verdicts as <code>true</code> and <code>false</code>, a load test's thresholds and its second by
   second series. The file is valid HTML and valid XML, so a build step can parse it with either. Opening the same file
   in a browser gives a page to read.</p>
 
@@ -54,7 +54,7 @@ https://stampdrill.com/report/1.0/report.js</code></pre>
   <p>A <code>&lt;stamp-plan&gt;</code> or <code>&lt;stamp-load&gt;</code> element copied out of a report draws itself
   anywhere, from the measurements it carries. The script tag is all it needs; if the page has no stylesheet for the
   reports, the module adds one.</p>
-<pre><code>&lt;script type="module" src="https://stampdrill.com/report/1.0/report.js"&gt;&lt;/script&gt;
+<pre><code>&lt;script src="https://stampdrill.com/report/1.0/report.js" defer&gt;&lt;/script&gt;
 
 &lt;stamp-plan name="Checkout" file="plans/checkout.stamp" passed="true" ms="412"
             iterations="1" requests="3" checks="9" checks-failed="0"&gt;

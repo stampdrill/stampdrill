@@ -169,7 +169,9 @@ public enum PlanReportExport {
         page += #"<meta name="generator" content="\#(attribute(generator))" />"# + "\n"
         page += "<title>Stampdrill test report</title>\n"
         page += #"<link rel="stylesheet" href="\#(attribute(assets))report.css" />"# + "\n"
-        page += #"<script type="module" src="\#(attribute(assets))report.js"></script>"# + "\n"
+        // Deferred and classic, not a module: a module is fetched with CORS, which a
+        // report opened from a file on disk cannot satisfy.
+        page += #"<script src="\#(attribute(assets))report.js" defer="defer"></script>"# + "\n"
         // Until the elements are defined, only the sentence below shows; after that, only the page.
         page += """
         <style>
@@ -239,11 +241,11 @@ public enum PlanReportExport {
     private static func loadHTML(_ report: LoadReport) -> String {
         let s = report.snapshot
         var html = #"  <stamp-load name="\#(attribute(report.plan.name))" file="\#(attribute(report.plan.path))" passed="\#(flag(report.passed))" started-at="\#(stamp(report.startedAt))" ms="\#(wholeMilliseconds(s.elapsed))" users="\#(s.series.map(\.users).max() ?? s.activeUsers)" iterations="\#(s.iterations)">"# + "\n"
-        html += #"    <stamp-metrics requests="\#(s.requests)" failed="\#(s.failedRequests)" error-rate="\#(number(s.errorRate))" rps="\#(number(s.requestsPerSecond))" checks="\#(s.checksPassed + s.checksFailed)" checks-failed="\#(s.checksFailed)" p50="\#(number(s.p50))" p90="\#(number(s.p90))" p95="\#(number(s.p95))" p99="\#(number(s.p99))" avg="\#(number(s.average))" max="\#(number(s.maximum))"></stamp-metrics>"# + "\n"
+        html += #"    <stamp-metrics requests="\#(s.requests)" failed="\#(s.failedRequests)" error-rate="\#(rate(s.errorRate))" rps="\#(number(s.requestsPerSecond))" checks="\#(s.checksPassed + s.checksFailed)" checks-failed="\#(s.checksFailed)" p50="\#(number(s.p50))" p90="\#(number(s.p90))" p95="\#(number(s.p95))" p99="\#(number(s.p99))" avg="\#(number(s.average))" max="\#(number(s.maximum))"></stamp-metrics>"# + "\n"
         if !report.thresholds.isEmpty {
             html += "    <stamp-thresholds>\n"
             for result in report.thresholds {
-                html += #"      <stamp-threshold metric="\#(result.threshold.metric.rawValue)" comparison="\#(attribute(result.threshold.comparison.rawValue))" value="\#(number(result.threshold.value))" measured="\#(number(result.measured))" passed="\#(flag(result.passed))" source="\#(attribute(result.threshold.source))"></stamp-threshold>"# + "\n"
+                html += #"      <stamp-threshold metric="\#(result.threshold.metric.rawValue)" comparison="\#(attribute(result.threshold.comparison.rawValue))" value="\#(measurement(result.threshold.metric, result.threshold.value))" measured="\#(measurement(result.threshold.metric, result.measured))" passed="\#(flag(result.passed))" source="\#(attribute(result.threshold.source))"></stamp-threshold>"# + "\n"
             }
             html += "    </stamp-thresholds>\n"
         }
@@ -320,7 +322,29 @@ public enum PlanReportExport {
 
     /// A measurement with two decimals at most, and no trailing zeros to read past.
     private static func number(_ value: Double) -> String {
-        value == value.rounded() ? String(Int(value)) : String(format: "%.2f", value)
+        trimmed(String(format: "%.2f", value))
+    }
+
+    /// A rate, which lives between 0 and 1: two decimals would round "errors < 0.5%"
+    /// to 1% and "checks > 99.9%" to an impossible 100%, so a rate keeps six.
+    private static func rate(_ value: Double) -> String {
+        trimmed(String(format: "%.6f", value))
+    }
+
+    private static func trimmed(_ text: String) -> String {
+        guard text.contains(".") else { return text }
+        var text = text
+        while text.hasSuffix("0") { text.removeLast() }
+        if text.hasSuffix(".") { text.removeLast() }
+        return text
+    }
+
+    /// Milliseconds and counts read as numbers; errors and checks are rates.
+    private static func measurement(_ metric: LoadThreshold.Metric, _ value: Double) -> String {
+        switch metric {
+        case .errors, .checks: rate(value)
+        default: number(value)
+        }
     }
 
     private static func flag(_ value: Bool) -> String { value ? "true" : "false" }

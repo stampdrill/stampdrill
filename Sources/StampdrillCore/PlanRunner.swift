@@ -421,7 +421,7 @@ final class Execution: @unchecked Sendable {
                 }
                 let count = min(Int(requested), 500)
                 let barrier = Barrier(parties: count)
-                let actors = await withTaskGroup(of: (Int, [PlanEvent], Value?).self) { group in
+                let actors = await withTaskGroup(of: (Int, [PlanEvent], Value?, TimeInterval).self) { group in
                     for index in 0..<count {
                         group.addTask { [self] in
                             let session = await Session(copying: runner.session)
@@ -434,17 +434,24 @@ final class Execution: @unchecked Sendable {
                             actor.locals["actor"] = .number(Double(index))
                             // Everyone starts at the same moment.
                             _ = await barrier.arrive("start")
+                            // Each actor is timed on its own: how long one took while the
+                            // others ran is the thing a race is read by.
+                            let clock = ContinuousClock()
+                            let started = clock.now
                             let events = await actor.run(body)
-                            return (index, events, actor.lastResponse)
+                            let elapsed = clock.now - started
+                            let seconds = Double(elapsed.components.seconds) + Double(elapsed.components.attoseconds) / 1e18
+                            return (index, events, actor.lastResponse, seconds)
                         }
                     }
-                    var collected: [(Int, [PlanEvent], Value?)] = []
+                    var collected: [(Int, [PlanEvent], Value?, TimeInterval)] = []
                     for await entry in group { collected.append(entry) }
                     return collected.sorted { $0.0 < $1.0 }
                 }
                 locals["results"] = .array(actors.map { $0.2 ?? .null })
-                let events = actors.map { index, events, _ in
-                    PlanEvent(kind: .step(title: "actor \(index)", events: events, attempts: 1), line: statement.line, concurrency: .actor(index: index))
+                let events = actors.map { index, events, _, elapsed in
+                    PlanEvent(kind: .step(title: "actor \(index)", events: events, attempts: 1), line: statement.line,
+                              duration: elapsed, concurrency: .actor(index: index))
                 }
                 return [timed(PlanEvent(kind: .step(title: "\(count) at once", events: events, attempts: 1), line: statement.line, concurrency: .group(actors: count)))]
             }
