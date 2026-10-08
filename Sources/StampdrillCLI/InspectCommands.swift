@@ -67,7 +67,8 @@ struct CheckCommand {
         } else {
             t.out(t.paint("✗ ", .red, .bold) + summary + t.paint(", \(errors) error\(errors == 1 ? "" : "s")", .red))
         }
-        return errors == 0 ? 0 : 1
+        // 2, not 1: a file that cannot be parsed is a different thing from a check that failed.
+        return errors == 0 ? 0 : 2
     }
 }
 
@@ -86,7 +87,10 @@ struct EnvCommand {
         var selection = environment.defaultSelection
         for (name, value) in arguments.dimensions {
             guard environment.dimension(named: name) != nil else {
-                throw UsageError(description: "unknown dimension '\(name)'")
+                let known = environment.dimensions.map(\.name)
+                throw UsageError(description: known.isEmpty
+                    ? "this workspace declares no dimensions"
+                    : "unknown dimension '\(name)'. This workspace has \(known.joined(separator: ", "))")
             }
             selection[name] = value == "*" ? nil : value
         }

@@ -58,9 +58,18 @@ plan RaceOnEcho {
 }
 
 ### Place order
+# The plans above pass their own orderId; this default lets the request run on
+# its own too.
+@orderId = demo-cart
 POST {{httpbin}}/anything/orders
 
 { "orderId": "{{orderId}}", "customer": "{{person(orderId).name}}" }
 
+> assert status == 200
+> assert body.json.orderId == orderId
+
 ### Lookup order
+@orderId = demo-cart
 GET {{httpbin}}/anything/orders?id={{orderId}}
+
+> assert status == 200

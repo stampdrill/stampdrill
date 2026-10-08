@@ -20,7 +20,7 @@ Cursor, Windsurf and VSCodium don't carry Microsoft's marketplace, download
 install it directly:
 
 ```bash
-code --install-extension stampdrill-1.3.2.vsix
+code --install-extension stampdrill-1.4.0.vsix
 ```
 
 The language is described at https://stampdrill.com/language/.

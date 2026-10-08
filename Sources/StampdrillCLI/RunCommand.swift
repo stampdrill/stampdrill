@@ -61,7 +61,10 @@ struct RunCommand {
         var selection = environment.defaultSelection
         for (name, value) in arguments.dimensions {
             guard let dimension = environment.dimension(named: name) else {
-                throw UsageError(description: "unknown dimension '\(name)'; use --var \(name)=\(value) to set a variable")
+                let known = environment.dimensions.map(\.name)
+                throw UsageError(description: known.isEmpty
+                    ? "this workspace declares no dimensions; use --var \(name)=\(value) to set a variable"
+                    : "unknown dimension '\(name)'. This workspace has \(known.joined(separator: ", ")). Use --var \(name)=\(value) to set a variable instead")
             }
             guard dimension.values.contains(value) || value == "*" else {
                 throw UsageError(description: "'\(name)' has no value '\(value)' (choose from \(dimension.values.joined(separator: ", ")))")
