@@ -61,10 +61,9 @@ struct TestCommand {
         }
 
         try write(PlanReportExport.junit(reports), to: arguments.junitPath)
-        try write(PlanReportExport.stampXML(plans: reports, generator: "\(Stampdrill.name) \(Stampdrill.version)",
-                                           stylesheet: arguments.stampXMLStylesheet ?? PlanReportExport.stampXMLStylesheet),
-                  to: arguments.stampXMLPath)
-        try write(PlanReportExport.html(reports), to: arguments.htmlPath)
+        try write(PlanReportExport.html(plans: reports, generator: "\(Stampdrill.name) \(Stampdrill.version)",
+                                        assets: arguments.htmlAssets ?? PlanReportExport.reportAssets),
+                  to: arguments.htmlPath)
         try write(PlanReportExport.json(reports), to: arguments.jsonPath)
 
         let failed = reports.filter { !$0.passed }.count

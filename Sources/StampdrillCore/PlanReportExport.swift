@@ -135,235 +135,181 @@ public enum PlanReportExport {
 
     // MARK: HTML
 
-    /// A single self-contained page, readable in any browser and easy to attach to a build.
-    public static func html(_ reports: [PlanReport]) -> String {
-        var body = ""
-        for report in reports {
-            let counts = report.expectationCounts
-            body += """
-            <section class="plan \(report.passed ? "passed" : "failed")">
-              <header>
-                <h2>\(escape(report.plan.name)) <span class="file">\(escape(report.plan.path))</span></h2>
-                <p class="summary">\(report.passed ? "Passed" : "Failed") · \(report.iterations.count) iteration\(report.iterations.count == 1 ? "" : "s") · \(report.runs.count) requests · \(counts.passed) checks passed\(counts.failed > 0 ? ", \(counts.failed) failed" : "") · \(milliseconds(report.duration))</p>
-              </header>
+    /// The version of the report format. It is also in the address the page loads
+    /// its elements from, so a report written today keeps rendering the way it did today.
+    public static let reportVersion = "1.0"
+    public static let reportAssets = "https://stampdrill.com/report/\(reportVersion)/"
 
-            """
-            for iteration in report.iterations {
-                body += """
-                  <details class="iteration \(iteration.passed ? "passed" : "failed")"\(iteration.passed ? "" : " open")>
-                    <summary><span class="dot"></span>\(escape(iteration.label))<span class="time">\(milliseconds(iteration.duration))</span></summary>
-                    <ul>\(iteration.events.map(eventHTML).joined())</ul>
-                  </details>
-
-                """
-            }
-            if !report.timings.isEmpty {
-                body += "  <table><thead><tr><th>Request</th><th>Runs</th><th>Min</th><th>Average</th><th>p95</th></tr></thead><tbody>"
-                for timing in report.timings {
-                    body += "<tr><td>\(escape(timing.name))</td><td>\(timing.count)</td><td>\(milliseconds(timing.min))</td><td>\(milliseconds(timing.average))</td><td>\(milliseconds(timing.p95))</td></tr>"
-                }
-                body += "</tbody></table>\n"
-            }
-            body += "</section>\n"
-        }
-
-        return """
-        <!doctype html>
-        <html lang="en">
-        <meta charset="utf-8">
-        <meta name="viewport" content="width=device-width, initial-scale=1">
-        <title>Stampdrill test report</title>
-        <style>
-        :root { color-scheme: light dark; --ok: #2f9e5a; --bad: #d64545; --muted: #8a8a8e; --line: rgba(128,128,128,.22); }
-        body { font: 14px/1.5 -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; margin: 0 auto; max-width: 960px; padding: 32px 24px; }
-        h1 { font-size: 22px; margin: 0 0 24px; }
-        h2 { font-size: 17px; margin: 0; }
-        .file, .time, .summary { color: var(--muted); font-weight: normal; }
-        .file { font-size: 13px; margin-left: 6px; }
-        .plan { border: 1px solid var(--line); border-radius: 12px; padding: 16px 18px; margin-bottom: 20px; }
-        .plan.failed { border-color: color-mix(in srgb, var(--bad) 45%, transparent); }
-        .summary { margin: 4px 0 12px; }
-        details { border-top: 1px solid var(--line); padding: 8px 0; }
-        summary { cursor: pointer; display: flex; gap: 8px; align-items: center; font-weight: 600; }
-        summary .time { margin-left: auto; font-weight: normal; }
-        .dot { width: 8px; height: 8px; border-radius: 4px; background: var(--ok); display: inline-block; }
-        .failed > summary .dot { background: var(--bad); }
-        ul { list-style: none; margin: 6px 0 0 16px; padding: 0; }
-        li { padding: 2px 0; }
-        li.ok::before { content: "✓ "; color: var(--ok); }
-        li.bad::before { content: "✗ "; color: var(--bad); }
-        li.note { color: var(--muted); }
-        code { font: 12.5px ui-monospace, SFMono-Regular, Menlo, monospace; }
-        .detail { color: var(--muted); }
-        table { width: 100%; border-collapse: collapse; margin-top: 12px; font-variant-numeric: tabular-nums; }
-        th, td { text-align: left; padding: 4px 8px; border-bottom: 1px solid var(--line); }
-        th { color: var(--muted); font-weight: 500; }
-        </style>
-        <h1>Stampdrill test report <span class="time">\(Date().formatted(date: .abbreviated, time: .shortened))</span></h1>
-        \(body)
-        </html>
-
-        """
-    }
-
-    private static func eventHTML(_ event: PlanEvent) -> String {
-        switch event.kind {
-        case .run(let result):
-            let status = result.response.map { "\($0.statusCode) · \(milliseconds($0.duration))" } ?? (result.error ?? "")
-            var html = #"<li class="\#(result.passed ? "ok" : "bad")"><code>\#(escape(result.request?.method ?? "")) \#(escape(result.reference.name))</code> <span class="detail">\#(escape(status))</span>"#
-            let failed = result.assertions.filter { !$0.passed }
-            if !failed.isEmpty {
-                html += "<ul>" + failed.map { #"<li class="bad"><code>\#(escape($0.source))</code> <span class="detail">\#(escape($0.message ?? ""))</span></li>"# }.joined() + "</ul>"
-            }
-            return html + "</li>"
-        case .expectation(let source, let passed, let message):
-            return #"<li class="\#(passed ? "ok" : "bad")"><code>expect \#(escape(source))</code> <span class="detail">\#(escape(message ?? ""))</span></li>"#
-        case .step(let title, let children, let attempts):
-            let retries = attempts > 1 ? #" <span class="detail">after \#(attempts) attempts</span>"# : ""
-            return #"<li class="\#(event.passed ? "ok" : "bad")"><strong>\#(escape(title))</strong>\#(retries)<ul>\#(children.map(eventHTML).joined())</ul></li>"#
-        case .print(let text):
-            return #"<li class="note"><code>\#(escape(text))</code></li>"#
-        case .failure(let message):
-            return #"<li class="bad">\#(escape(message))</li>"#
-        }
-    }
-
-    // MARK: Stamp XML
-
-    /// The version of the XML format. It is also in the address of the stylesheet,
-    /// so a report written today keeps rendering the way it did today.
-    public static let stampXMLVersion = "0.1"
-    public static let stampXMLStylesheet = "https://stampdrill.com/report/\(stampXMLVersion)/style.xsl"
-
-    /// One file for both readers: a machine parses the elements, a browser applies
-    /// the stylesheet named in the processing instruction and draws the page.
+    /// One file for both readers: a machine parses the elements, a browser defines
+    /// them from the module the page names and draws the page.
     ///
-    /// The XML carries measurements and nothing about how they look. Test plans,
+    /// The markup carries measurements and nothing about how they look. Test plans,
     /// the actors of a `concurrently` block and load tests all go in the same
-    /// document, so one run is one file.
-    public static func stampXML(
+    /// document, so one run is one file. It parses as HTML and as XML.
+    public static func html(
         plans: [PlanReport] = [],
         loads: [LoadReport] = [],
         generator: String,
-        stylesheet: String = stampXMLStylesheet
+        assets: String = reportAssets
     ) -> String {
         let counts = plans.map(\.expectationCounts)
         let checksPassed = counts.map(\.passed).reduce(0, +) + loads.map(\.snapshot.checksPassed).reduce(0, +)
         let checksFailed = counts.map(\.failed).reduce(0, +) + loads.map(\.snapshot.checksFailed).reduce(0, +)
         let requests = plans.map(\.runs.count).reduce(0, +) + loads.map(\.snapshot.requests).reduce(0, +)
         let failed = plans.filter { !$0.passed }.count + loads.filter { !$0.passed }.count
+        let iterations = plans.flatMap(\.iterations).count
         let started = (plans.map(\.startedAt) + loads.map(\.startedAt)).min() ?? Date()
         let duration = plans.map(\.duration).reduce(0, +) + loads.map(\.snapshot.elapsed).reduce(0, +)
 
-        var xml = #"<?xml version="1.0" encoding="UTF-8"?>"# + "\n"
-        xml += #"<?xml-stylesheet type="text/xsl" href="\#(escape(stylesheet))"?>"# + "\n"
-        // Visible in the browsers that show the raw tree instead of applying the stylesheet.
-        xml += "<!-- A Stampdrill test report. Showing the markup rather than the page? Open it at https://stampdrill.com/report/ -->\n"
-        xml += #"<report version="\#(stampXMLVersion)" generator="\#(attribute(generator))" startedAt="\#(stamp(started))" ms="\#(wholeMilliseconds(duration))" passed="\#(flag(failed == 0))">"# + "\n"
-        xml += #"  <summary plans="\#(plans.count)" loads="\#(loads.count)" failed="\#(failed)" iterations="\#(plans.flatMap(\.iterations).count)" requests="\#(requests)" checks="\#(checksPassed + checksFailed)" checksFailed="\#(checksFailed)"/>"# + "\n"
-        xml += plans.map(planXML).joined()
-        xml += loads.map(loadXML).joined()
-        xml += "</report>\n"
-        return xml
+        var page = "<!DOCTYPE html>\n"
+        page += #"<html xmlns="http://www.w3.org/1999/xhtml" lang="en">"# + "\n"
+        page += "<head>\n"
+        page += #"<meta charset="utf-8" />"# + "\n"
+        page += #"<meta name="viewport" content="width=device-width, initial-scale=1" />"# + "\n"
+        page += #"<meta name="generator" content="\#(attribute(generator))" />"# + "\n"
+        page += "<title>Stampdrill test report</title>\n"
+        page += #"<link rel="stylesheet" href="\#(attribute(assets))report.css" />"# + "\n"
+        page += #"<script type="module" src="\#(attribute(assets))report.js"></script>"# + "\n"
+        // Until the elements are defined, only the sentence below shows; after that, only the page.
+        page += """
+        <style>
+        stamp-report:not(:defined) > :not(.stamp-note) { display: none; }
+        stamp-report:defined > .stamp-note { display: none; }
+        .stamp-note { max-width: 42rem; margin: 3rem auto; padding: 0 1.5rem; color: #5d6270;
+          font: 15px/1.6 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
+        </style>
+        </head>
+        <body>
+
+        """
+        page += #"<stamp-report version="\#(reportVersion)" generator="\#(attribute(generator))" started-at="\#(stamp(started))" ms="\#(wholeMilliseconds(duration))" passed="\#(flag(failed == 0))" plans="\#(plans.count)" loads="\#(loads.count)" failed="\#(failed)" iterations="\#(iterations)" requests="\#(requests)" checks="\#(checksPassed + checksFailed)" checks-failed="\#(checksFailed)">"# + "\n"
+        page += #"<p class="stamp-note">\#(escape(note(plans: plans.count, loads: loads.count, requests: requests, checks: checksPassed + checksFailed, checksFailed: checksFailed, failed: failed, duration: duration, assets: assets)))</p>"# + "\n"
+        page += plans.map(planHTML).joined()
+        page += loads.map(loadHTML).joined()
+        page += "</stamp-report>\n"
+        page += "</body>\n</html>\n"
+        return page
     }
 
-    private static func planXML(_ report: PlanReport) -> String {
+    /// What the file says when nothing loads: the same numbers, in a sentence.
+    private static func note(
+        plans: Int, loads: Int, requests: Int, checks: Int, checksFailed: Int,
+        failed: Int, duration: TimeInterval, assets: String
+    ) -> String {
+        var pieces: [String] = []
+        if plans > 0 { pieces.append("\(plans) plan\(plans == 1 ? "" : "s")") }
+        if loads > 0 { pieces.append("\(loads) load test\(loads == 1 ? "" : "s")") }
+        pieces.append("\(requests) request\(requests == 1 ? "" : "s")")
+        pieces.append("\(checks) check\(checks == 1 ? "" : "s")")
+        if checksFailed > 0 {
+            pieces.append("\(checksFailed) failed")
+        } else if failed > 0 {
+            pieces.append("\(failed) of \(plans + loads) failed")
+        } else {
+            pieces.append("none failed")
+        }
+        pieces.append(milliseconds(duration))
+        return "Stampdrill test report: \(pieces.joined(separator: ", ")). This page draws itself with "
+            + "elements from \(assets); without them, every number is still in the markup of this file."
+    }
+
+    private static func planHTML(_ report: PlanReport) -> String {
         let counts = report.expectationCounts
-        var xml = #"  <plan name="\#(attribute(report.plan.name))" file="\#(attribute(report.plan.path))" passed="\#(flag(report.passed))" startedAt="\#(stamp(report.startedAt))" ms="\#(wholeMilliseconds(report.duration))" iterations="\#(report.iterations.count)" requests="\#(report.runs.count)" checks="\#(counts.passed + counts.failed)" checksFailed="\#(counts.failed)">"# + "\n"
+        var html = #"  <stamp-plan name="\#(attribute(report.plan.name))" file="\#(attribute(report.plan.path))" passed="\#(flag(report.passed))" started-at="\#(stamp(report.startedAt))" ms="\#(wholeMilliseconds(report.duration))" iterations="\#(report.iterations.count)" requests="\#(report.runs.count)" checks="\#(counts.passed + counts.failed)" checks-failed="\#(counts.failed)">"# + "\n"
         for iteration in report.iterations {
-            xml += #"    <iteration index="\#(iteration.index)" label="\#(attribute(iteration.label))" passed="\#(flag(iteration.passed))" startedAt="\#(stamp(iteration.startedAt))" ms="\#(wholeMilliseconds(iteration.duration))">"# + "\n"
+            html += #"    <stamp-iteration index="\#(iteration.index)" label="\#(attribute(iteration.label))" passed="\#(flag(iteration.passed))" started-at="\#(stamp(iteration.startedAt))" ms="\#(wholeMilliseconds(iteration.duration))">"# + "\n"
             for (name, value) in iteration.selection.sorted(by: { $0.key < $1.key }) {
-                xml += #"      <dimension name="\#(attribute(name))" value="\#(attribute(value))"/>"# + "\n"
+                html += #"      <stamp-dimension name="\#(attribute(name))" value="\#(attribute(value))"></stamp-dimension>"# + "\n"
             }
-            xml += iteration.events.map { eventXML($0, since: iteration.startedAt, indent: "      ") }.joined()
-            xml += "    </iteration>\n"
+            html += iteration.events.map { eventHTML($0, since: iteration.startedAt, indent: "      ") }.joined()
+            html += "    </stamp-iteration>\n"
         }
         if !report.timings.isEmpty {
-            xml += "    <timings>\n"
+            html += "    <stamp-timings>\n"
             for timing in report.timings {
-                xml += #"      <timing name="\#(attribute(timing.name))" count="\#(timing.count)" min="\#(wholeMilliseconds(timing.min))" average="\#(wholeMilliseconds(timing.average))" p95="\#(wholeMilliseconds(timing.p95))"/>"# + "\n"
+                html += #"      <stamp-timing name="\#(attribute(timing.name))" count="\#(timing.count)" min="\#(wholeMilliseconds(timing.min))" average="\#(wholeMilliseconds(timing.average))" p95="\#(wholeMilliseconds(timing.p95))"></stamp-timing>"# + "\n"
             }
-            xml += "    </timings>\n"
+            html += "    </stamp-timings>\n"
         }
-        return xml + "  </plan>\n"
+        return html + "  </stamp-plan>\n"
     }
 
     /// A load test: the totals, the thresholds that decided it, the second by
     /// second series a chart is drawn from, and what went wrong.
-    private static func loadXML(_ report: LoadReport) -> String {
+    private static func loadHTML(_ report: LoadReport) -> String {
         let s = report.snapshot
-        var xml = #"  <load name="\#(attribute(report.plan.name))" file="\#(attribute(report.plan.path))" passed="\#(flag(report.passed))" startedAt="\#(stamp(report.startedAt))" ms="\#(wholeMilliseconds(s.elapsed))" users="\#(s.series.map(\.users).max() ?? s.activeUsers)" iterations="\#(s.iterations)">"# + "\n"
-        xml += #"    <metrics requests="\#(s.requests)" failed="\#(s.failedRequests)" errorRate="\#(number(s.errorRate))" rps="\#(number(s.requestsPerSecond))" checks="\#(s.checksPassed + s.checksFailed)" checksFailed="\#(s.checksFailed)" p50="\#(number(s.p50))" p90="\#(number(s.p90))" p95="\#(number(s.p95))" p99="\#(number(s.p99))" avg="\#(number(s.average))" max="\#(number(s.maximum))"/>"# + "\n"
+        var html = #"  <stamp-load name="\#(attribute(report.plan.name))" file="\#(attribute(report.plan.path))" passed="\#(flag(report.passed))" started-at="\#(stamp(report.startedAt))" ms="\#(wholeMilliseconds(s.elapsed))" users="\#(s.series.map(\.users).max() ?? s.activeUsers)" iterations="\#(s.iterations)">"# + "\n"
+        html += #"    <stamp-metrics requests="\#(s.requests)" failed="\#(s.failedRequests)" error-rate="\#(number(s.errorRate))" rps="\#(number(s.requestsPerSecond))" checks="\#(s.checksPassed + s.checksFailed)" checks-failed="\#(s.checksFailed)" p50="\#(number(s.p50))" p90="\#(number(s.p90))" p95="\#(number(s.p95))" p99="\#(number(s.p99))" avg="\#(number(s.average))" max="\#(number(s.maximum))"></stamp-metrics>"# + "\n"
         if !report.thresholds.isEmpty {
-            xml += "    <thresholds>\n"
+            html += "    <stamp-thresholds>\n"
             for result in report.thresholds {
-                xml += #"      <threshold metric="\#(result.threshold.metric.rawValue)" comparison="\#(attribute(result.threshold.comparison.rawValue))" value="\#(number(result.threshold.value))" measured="\#(number(result.measured))" passed="\#(flag(result.passed))" source="\#(attribute(result.threshold.source))"/>"# + "\n"
+                html += #"      <stamp-threshold metric="\#(result.threshold.metric.rawValue)" comparison="\#(attribute(result.threshold.comparison.rawValue))" value="\#(number(result.threshold.value))" measured="\#(number(result.measured))" passed="\#(flag(result.passed))" source="\#(attribute(result.threshold.source))"></stamp-threshold>"# + "\n"
             }
-            xml += "    </thresholds>\n"
+            html += "    </stamp-thresholds>\n"
         }
         if !s.series.isEmpty {
-            xml += "    <series>\n"
+            html += "    <stamp-series>\n"
             for second in s.series {
-                xml += #"      <second at="\#(second.second)" requests="\#(second.requests)" errors="\#(second.errors)" p95="\#(number(second.p95))" users="\#(second.users)"/>"# + "\n"
+                html += #"      <stamp-second at="\#(second.second)" requests="\#(second.requests)" errors="\#(second.errors)" p95="\#(number(second.p95))" users="\#(second.users)"></stamp-second>"# + "\n"
             }
-            xml += "    </series>\n"
+            html += "    </stamp-series>\n"
         }
         if !s.perRequest.isEmpty {
-            xml += "    <requests>\n"
+            html += "    <stamp-requests>\n"
             for stats in s.perRequest {
-                xml += #"      <request name="\#(attribute(stats.name))" count="\#(stats.count)" failures="\#(stats.failures)" average="\#(number(stats.average))" p95="\#(number(stats.p95))"/>"# + "\n"
+                html += #"      <stamp-request-stats name="\#(attribute(stats.name))" count="\#(stats.count)" failures="\#(stats.failures)" average="\#(number(stats.average))" p95="\#(number(stats.p95))"></stamp-request-stats>"# + "\n"
             }
-            xml += "    </requests>\n"
+            html += "    </stamp-requests>\n"
         }
         if !report.failures.isEmpty {
-            xml += "    <failures>\n"
+            html += "    <stamp-failures>\n"
             for failure in report.failures {
-                xml += #"      <failure count="\#(failure.count)">\#(escape(failure.message))</failure>"# + "\n"
+                html += #"      <stamp-load-failure count="\#(failure.count)">\#(escape(failure.message))</stamp-load-failure>"# + "\n"
             }
-            xml += "    </failures>\n"
+            html += "    </stamp-failures>\n"
         }
-        return xml + "  </load>\n"
+        return html + "  </stamp-load>\n"
     }
 
-    private static func eventXML(_ event: PlanEvent, since: Date, indent: String) -> String {
+    private static func eventHTML(_ event: PlanEvent, since: Date, indent: String) -> String {
         switch event.kind {
         case .run(let result):
-            var xml = #"\#(indent)<request name="\#(attribute(result.reference.name))" method="\#(attribute(result.request?.method ?? ""))""#
+            var html = #"\#(indent)<stamp-request name="\#(attribute(result.reference.name))" method="\#(attribute(result.request?.method ?? ""))""#
             if let response = result.response {
-                xml += #" url="\#(attribute(response.url.absoluteString))" status="\#(response.statusCode)" ms="\#(wholeMilliseconds(response.duration))""#
+                html += #" url="\#(attribute(response.url.absoluteString))" status="\#(response.statusCode)" ms="\#(wholeMilliseconds(response.duration))""#
             }
             // Where this request sits in the iteration, so actors that fired together look like it.
-            xml += #" at="\#(max(0, wholeMilliseconds(result.startedAt.timeIntervalSince(since))))" passed="\#(flag(result.passed))""#
-            if let error = result.error { xml += #" error="\#(attribute(error))""# }
-            guard !result.assertions.isEmpty else { return xml + "/>\n" }
-            xml += ">\n"
+            html += #" at="\#(max(0, wholeMilliseconds(result.startedAt.timeIntervalSince(since))))" passed="\#(flag(result.passed))""#
+            if let error = result.error { html += #" error="\#(attribute(error))""# }
+            guard !result.assertions.isEmpty else { return html + "></stamp-request>\n" }
+            html += ">\n"
             for assertion in result.assertions {
-                xml += #"\#(indent)  <check source="\#(attribute(assertion.source))" line="\#(assertion.line)" passed="\#(flag(assertion.passed))""#
-                xml += assertion.message.map { #" message="\#(attribute($0))""# } ?? ""
-                xml += "/>\n"
+                html += #"\#(indent)  <stamp-check source="\#(attribute(assertion.source))" line="\#(assertion.line)" passed="\#(flag(assertion.passed))""#
+                html += assertion.message.map { #" message="\#(attribute($0))""# } ?? ""
+                html += "></stamp-check>\n"
             }
-            return xml + "\(indent)</request>\n"
+            return html + "\(indent)</stamp-request>\n"
         case .expectation(let source, let passed, let message):
-            var xml = #"\#(indent)<expect source="\#(attribute(source))" line="\#(event.line)" passed="\#(flag(passed))""#
-            xml += message.map { #" message="\#(attribute($0))""# } ?? ""
-            return xml + "/>\n"
+            var html = #"\#(indent)<stamp-expect source="\#(attribute(source))" line="\#(event.line)" passed="\#(flag(passed))""#
+            html += message.map { #" message="\#(attribute($0))""# } ?? ""
+            return html + "></stamp-expect>\n"
         case .step(let title, let children, let attempts):
-            let inner = children.map { eventXML($0, since: since, indent: indent + "  ") }.joined()
+            let inner = children.map { eventHTML($0, since: since, indent: indent + "  ") }.joined()
             switch event.concurrency {
             case .group(let actors):
-                var xml = #"\#(indent)<concurrently actors="\#(actors)" title="\#(attribute(title))" passed="\#(flag(event.passed))" ms="\#(wholeMilliseconds(event.duration))">"# + "\n"
-                return xml + inner + "\(indent)</concurrently>\n"
+                let html = #"\#(indent)<stamp-concurrently title="\#(attribute(title))" actors="\#(actors)" passed="\#(flag(event.passed))" ms="\#(wholeMilliseconds(event.duration))">"# + "\n"
+                return html + inner + "\(indent)</stamp-concurrently>\n"
             case .actor(let index):
-                let xml = #"\#(indent)<actor index="\#(index)" passed="\#(flag(event.passed))" ms="\#(wholeMilliseconds(event.duration))">"# + "\n"
-                return xml + inner + "\(indent)</actor>\n"
+                let html = #"\#(indent)<stamp-actor index="\#(index)" passed="\#(flag(event.passed))" ms="\#(wholeMilliseconds(event.duration))">"# + "\n"
+                return html + inner + "\(indent)</stamp-actor>\n"
             case nil:
-                let xml = #"\#(indent)<step title="\#(attribute(title))" attempts="\#(attempts)" passed="\#(flag(event.passed))" ms="\#(wholeMilliseconds(event.duration))">"# + "\n"
-                return xml + inner + "\(indent)</step>\n"
+                let html = #"\#(indent)<stamp-step title="\#(attribute(title))" attempts="\#(attempts)" passed="\#(flag(event.passed))" ms="\#(wholeMilliseconds(event.duration))">"# + "\n"
+                return html + inner + "\(indent)</stamp-step>\n"
             }
         case .print(let text):
-            return "\(indent)<print>\(escape(text))</print>\n"
+            return "\(indent)<stamp-print>\(escape(text))</stamp-print>\n"
         case .failure(let message):
-            return #"\#(indent)<failure line="\#(event.line)">\#(escape(message))</failure>"# + "\n"
+            return #"\#(indent)<stamp-failure line="\#(event.line)">\#(escape(message))</stamp-failure>"# + "\n"
         }
     }
 

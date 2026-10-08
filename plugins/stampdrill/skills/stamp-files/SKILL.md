@@ -229,8 +229,9 @@ Options worth knowing:
 | `--verbose` / `-q, --quiet` | Headers and bodies / failures only |
 | `--show-secrets` | Unmask `secret(...)` values; avoid in shared logs |
 | `-o, --output path` | Write the last response body to a file |
-| `--junit`, `--html`, `--json` | Reports for CI |
-| `--stamp-xml` | One report for both: XML to parse, charted in a browser |
+| `--junit path` | JUnit XML for CI |
+| `--html path` | One HTML file: parse the markup, or open it in a browser |
+| `--json path` | The whole run as JSON |
 | `--no-color` | Plain output, better for parsing |
 
 Exit codes: **0** all good, **1** a check or threshold failed, **2** a file has

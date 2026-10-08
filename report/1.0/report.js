@@ -1,31 +1,95 @@
-/* Draws a Stampdrill test report from its XML, in a browser that no longer
-   applies XSLT. Same markup and same classes as style.xsl, so both paths look
-   the same. Nothing is uploaded: the file is read and drawn where you opened it.
+/* The custom elements a Stampdrill HTML test report is written in, and the page
+   they draw. Every number is in the markup of the report itself, in attributes;
+   this module only reads that tree and lays it out, which is why the same file
+   a build server parses is the file a person opens. Nothing is uploaded, and
+   nothing is fetched except the stylesheet beside this file.
 
    Copyright 2026 Siamand Maroufi. This Source Code Form is subject to the terms
    of the Mozilla Public License, v. 2.0. If a copy of the MPL was not
    distributed with this file, You can obtain one at https://mozilla.org/MPL/2.0/. */
 
-export function render(xml) {
-  const report = xml.documentElement;
-  if (!report || report.tagName !== "report") {
-    throw new Error("that file is not a Stampdrill report");
+const STYLESHEET = new URL("./report.css", import.meta.url).href;
+const drawn = new WeakSet();
+
+// MARK: the elements
+
+/** The whole run. It reads its subtree and replaces it with the page. */
+class StampReport extends HTMLElement {
+  connectedCallback() { draw(this, page); }
+}
+
+/* A plan or a load test can also stand alone in a page of someone else's.
+   Inside a report the parent draws it, so there it does nothing. */
+class StampPlan extends HTMLElement {
+  connectedCallback() { if (!inReport(this)) draw(this, plan); }
+}
+
+class StampLoad extends HTMLElement {
+  connectedCallback() { if (!inReport(this)) draw(this, load); }
+}
+
+/** The data elements: they carry measurements and draw nothing. Defining them
+    is what makes :defined true, so a half loaded page shows no raw data. */
+class StampData extends HTMLElement {}
+
+const DATA = [
+  "iteration", "dimension", "step", "concurrently", "actor", "request", "check", "expect", "print", "failure",
+  "timings", "timing", "metrics", "thresholds", "threshold", "series", "second", "requests", "request-stats",
+  "failures", "load-failure",
+];
+
+function define(tag, constructor) {
+  if (!customElements.get(tag)) customElements.define(tag, constructor);
+}
+
+function inReport(node) {
+  return node.parentElement != null && node.parentElement.closest("stamp-report") != null;
+}
+
+/** Builds the page from the data, then swaps the data out for it. A report that
+    cannot be read is left alone and said out loud, rather than half drawn. */
+function draw(host, build) {
+  const run = () => {
+    if (drawn.has(host)) return;
+    drawn.add(host);
+    try {
+      host.replaceChildren(build(host));
+    } catch (error) {
+      drawn.delete(host);
+      console.error("This is not a Stampdrill report this version can draw:", error);
+    }
+  };
+  // The script may be loaded in a way that runs it before the data is parsed.
+  if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", run, { once: true });
+  else run();
+}
+
+/** An embedder only has to add the script tag; the look comes along with it. */
+function stylesheet() {
+  for (const sheet of document.querySelectorAll('link[rel~="stylesheet"]')) {
+    if (sheet.href === STYLESHEET || sheet.href.endsWith("/report.css")) return;
   }
-  const summary = child(report, "summary");
-  const page = element("div", "wrap");
-  page.append(
-    heading(report),
-    paragraph("meta", [text(report.getAttribute("startedAt") || ""), text(" · "), code(report.getAttribute("generator") || "")]),
-    totals(summary, report),
-  );
-  for (const node of children(report, "plan", "load")) {
-    page.append(node.tagName === "plan" ? plan(node) : load(node));
-  }
-  page.append(footer(report));
-  return page;
+  const link = document.createElement("link");
+  link.rel = "stylesheet";
+  link.href = STYLESHEET;
+  (document.head || document.documentElement).append(link);
 }
 
 // MARK: the page
+
+function page(report) {
+  const wrap = element("div", "wrap");
+  wrap.append(
+    heading(report),
+    paragraph("meta", [text(report.getAttribute("started-at") || ""), text(" · "), code(report.getAttribute("generator") || "")]),
+    totals(report),
+  );
+  for (const node of children(report, "plan", "load")) {
+    wrap.append(kind(node) === "plan" ? plan(node) : load(node));
+  }
+  wrap.append(footer(report));
+  return wrap;
+}
 
 function heading(report) {
   const h1 = element("h1");
@@ -33,16 +97,16 @@ function heading(report) {
   return h1;
 }
 
-function totals(summary, report) {
+function totals(report) {
   const list = element("dl", "totals");
   const counts = [];
-  if (number(summary, "plans") > 0) {
-    counts.push(["Plans", summary.getAttribute("plans")], ["Iterations", summary.getAttribute("iterations")]);
+  if (number(report, "plans") > 0) {
+    counts.push(["Plans", report.getAttribute("plans")], ["Iterations", report.getAttribute("iterations")]);
   }
-  if (number(summary, "loads") > 0) counts.push(["Load tests", summary.getAttribute("loads")]);
-  counts.push(["Requests", summary.getAttribute("requests")], ["Checks", summary.getAttribute("checks")]);
+  if (number(report, "loads") > 0) counts.push(["Load tests", report.getAttribute("loads")]);
+  counts.push(["Requests", report.getAttribute("requests")], ["Checks", report.getAttribute("checks")]);
   for (const [name, value] of counts) list.append(total(name, value));
-  list.append(total("Checks failed", summary.getAttribute("checksFailed"), number(summary, "checksFailed") > 0));
+  list.append(total("Checks failed", report.getAttribute("checks-failed"), number(report, "checks-failed") > 0));
   list.append(total("Time", milliseconds(report.getAttribute("ms"))));
   return list;
 }
@@ -62,7 +126,7 @@ function plan(node) {
   section.append(paragraph("counts", [text([
     count(node, "iterations", "iteration"),
     count(node, "requests", "request"),
-    count(node, "checks", "check") + (number(node, "checksFailed") > 0 ? `, ${node.getAttribute("checksFailed")} failed` : ""),
+    count(node, "checks", "check") + (number(node, "checks-failed") > 0 ? `, ${node.getAttribute("checks-failed")} failed` : ""),
     milliseconds(node.getAttribute("ms")),
   ].join(" · "))]));
 
@@ -101,7 +165,7 @@ function list(node) {
 }
 
 function eventItem(node) {
-  switch (node.tagName) {
+  switch (kind(node)) {
     case "step": {
       const item = element("li", passed(node));
       item.append(element("span", "step", node.getAttribute("title")));
@@ -130,7 +194,7 @@ function eventItem(node) {
     case "check":
     case "expect": {
       const item = element("li", passed(node));
-      item.append(code((node.tagName === "expect" ? "expect " : "") + node.getAttribute("source")));
+      item.append(code((kind(node) === "expect" ? "expect " : "") + node.getAttribute("source")));
       if (node.getAttribute("message")) item.append(element("div", "message", node.getAttribute("message")));
       return item;
     }
@@ -151,16 +215,16 @@ function concurrently(node) {
   item.append(element("span", "status", `${node.getAttribute("actors")} actors at once · ${milliseconds(node.getAttribute("ms"))}`));
 
   const span = Math.max(1, number(node, "ms"));
-  const requests = Array.from(node.getElementsByTagName("request"));
-  const first = requests.length ? Number(requests[0].getAttribute("at") || 0) : 0;
+  const requests = descendants(node, "request");
+  const first = requests.length ? number(requests[0], "at") : 0;
   const lanes = element("div", "lanes");
   for (const actor of children(node, "actor")) {
     const lane = element("div", "lane");
     lane.append(element("span", "lane-name", `actor ${actor.getAttribute("index")}`));
     const track = element("div", "lane-track");
-    for (const request of actor.getElementsByTagName("request")) {
+    for (const request of descendants(actor, "request")) {
       const bar = element("span", "lane-bar" + (boolean(request, "passed") ? "" : " failed"));
-      const at = Number(request.getAttribute("at") || 0) - first;
+      const at = number(request, "at") - first;
       bar.style.left = `${(at / span) * 100}%`;
       bar.style.width = `${(number(request, "ms") / span) * 100}%`;
       bar.title = `${request.getAttribute("name")}: started ${at} ms in, took ${request.getAttribute("ms")} ms`;
@@ -201,19 +265,21 @@ function load(node) {
     milliseconds(node.getAttribute("ms")),
   ].join(" · "))]));
 
-  const tiles = element("dl", "metrics");
-  tiles.append(
-    total("Requests", metrics.getAttribute("requests")),
-    total("Per second", round(metrics.getAttribute("rps"), 1)),
-    total("Errors", `${round(number(metrics, "errorRate") * 100, 2)}%`, number(metrics, "failed") > 0),
-    total("p50", `${round(metrics.getAttribute("p50"), 0)} ms`),
-    total("p95", `${round(metrics.getAttribute("p95"), 0)} ms`),
-    total("p99", `${round(metrics.getAttribute("p99"), 0)} ms`),
-    total("Max", `${round(metrics.getAttribute("max"), 0)} ms`),
-    total("Checks", `${number(metrics, "checks") - number(metrics, "checksFailed")}/${metrics.getAttribute("checks")}`,
-          number(metrics, "checksFailed") > 0),
-  );
-  section.append(tiles);
+  if (metrics) {
+    const tiles = element("dl", "metrics");
+    tiles.append(
+      total("Requests", metrics.getAttribute("requests")),
+      total("Per second", round(metrics.getAttribute("rps"), 1)),
+      total("Errors", `${round(number(metrics, "error-rate") * 100, 2)}%`, number(metrics, "failed") > 0),
+      total("p50", `${round(metrics.getAttribute("p50"), 0)} ms`),
+      total("p95", `${round(metrics.getAttribute("p95"), 0)} ms`),
+      total("p99", `${round(metrics.getAttribute("p99"), 0)} ms`),
+      total("Max", `${round(metrics.getAttribute("max"), 0)} ms`),
+      total("Checks", `${number(metrics, "checks") - number(metrics, "checks-failed")}/${metrics.getAttribute("checks")}`,
+            number(metrics, "checks-failed") > 0),
+    );
+    section.append(tiles);
+  }
 
   const series = child(node, "series");
   const seconds = series ? children(series, "second") : [];
@@ -231,7 +297,7 @@ function load(node) {
   const requests = child(node, "requests");
   if (requests) {
     section.append(element("h3", "section-title", "Average and p95, by request"));
-    section.append(bars(children(requests, "request")));
+    section.append(bars(children(requests, "request-stats")));
   }
 
   const thresholds = child(node, "thresholds");
@@ -241,7 +307,7 @@ function load(node) {
   if (failures) {
     section.append(element("h3", "section-title", "What went wrong"));
     const items = element("ul");
-    for (const failure of children(failures, "failure")) {
+    for (const failure of children(failures, "load-failure")) {
       const item = element("li", "failed", failure.textContent);
       item.append(element("span", "status", `× ${failure.getAttribute("count")}`));
       items.append(item);
@@ -377,9 +443,15 @@ function code(value) { return element("code", null, value); }
 function text(value) { return document.createTextNode(value); }
 function pill(state) { return element("span", "verdict " + state, state); }
 
+/** The name of a data element without its prefix: stamp-request is a request. */
+function kind(node) { return node.localName.slice("stamp-".length); }
+
 function children(node, ...names) {
-  return Array.from(node.children).filter((child) => names.includes(child.tagName));
+  const wanted = names.map((name) => "stamp-" + name);
+  return Array.from(node.children).filter((child) => wanted.includes(child.localName));
 }
+
+function descendants(node, name) { return Array.from(node.querySelectorAll("stamp-" + name)); }
 
 function child(node, name) { return children(node, name)[0] || null; }
 function number(node, name) { return Number(node.getAttribute(name) || 0); }
@@ -401,3 +473,13 @@ function milliseconds(value) {
   const number = Number(value);
   return number >= 1000 ? `${(number / 1000).toFixed(2)} s` : `${number} ms`;
 }
+
+// MARK: registering
+
+/* Last, because defining the elements draws the report there and then, and the
+   page is built out of everything above. */
+stylesheet();
+define("stamp-report", StampReport);
+define("stamp-plan", StampPlan);
+define("stamp-load", StampLoad);
+for (const data of DATA) define("stamp-" + data, class extends StampData {});

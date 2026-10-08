@@ -209,10 +209,12 @@ $ stamp test api
 
 ```bash
 stamp test api --junit reports/junit.xml   # for CI
-stamp test api --stamp-xml reports/api.xml # one file: parse it, or open it in a browser
-stamp test api --html reports/report.html  # to read
+stamp test api --html reports/api.html     # one file: parse it, or open it in a browser
 stamp env api environment=qa region=eu     # what those dimensions resolve to
 ```
+
+The HTML report carries its numbers in the markup, so the file a build server parses is the same one a person
+opens in a browser. A load test's report comes with its charts for requests per second, latency and users.
 
 ### The same fake person across services
 
@@ -385,7 +387,7 @@ repository; `StampdrillCore` is the engine it uses, and MPL lets you build your 
 | | |
 |---|---|
 | `Sources/`, `Tests/`, `Package.swift` | [Mozilla Public License 2.0](LICENSE) |
-| `report/` | [Mozilla Public License 2.0](LICENSE) |
+| `report/` (the stylesheet and custom elements an HTML report loads) | [Mozilla Public License 2.0](LICENSE) |
 | `docs/`, `Examples/`, `plugins/`, `editors/` | [MIT](LICENSE-MIT) |
 
 MPL is file level copyleft: you may use the engine in a closed product, including commercially, and only

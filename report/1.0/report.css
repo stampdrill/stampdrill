@@ -1,5 +1,5 @@
-/* The look of a Stampdrill test report, shared by the XSL stylesheet and the
-   viewer at https://stampdrill.com/report/.
+/* The look of a Stampdrill test report. The report carries the numbers; this
+   file and report.js beside it carry everything about how they look.
 
    Copyright 2026 Siamand Maroufi. This Source Code Form is subject to the terms
    of the Mozilla Public License, v. 2.0. If a copy of the MPL was not
@@ -18,6 +18,8 @@
   }
 }
 * { box-sizing: border-box; }
+/* The report lives in these elements, so they have to be blocks to hold a page. */
+stamp-report, stamp-plan, stamp-load { display: block; }
 body {
   margin: 0; background: var(--page); color: var(--ink);
   font: 15px/1.55 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;

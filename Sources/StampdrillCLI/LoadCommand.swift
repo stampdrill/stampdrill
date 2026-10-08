@@ -46,10 +46,10 @@ struct LoadCommand {
             printSummary(report)
         }
 
-        if let path = arguments.stampXMLPath {
-            let xml = PlanReportExport.stampXML(loads: reports, generator: "\(Stampdrill.name) \(Stampdrill.version)",
-                                                stylesheet: arguments.stampXMLStylesheet ?? PlanReportExport.stampXMLStylesheet)
-            try Data(xml.utf8).write(to: URL(fileURLWithPath: path), options: .atomic)
+        if let path = arguments.htmlPath {
+            let html = PlanReportExport.html(loads: reports, generator: "\(Stampdrill.name) \(Stampdrill.version)",
+                                             assets: arguments.htmlAssets ?? PlanReportExport.reportAssets)
+            try Data(html.utf8).write(to: URL(fileURLWithPath: path), options: .atomic)
             t.out(t.paint("wrote \(path)", .gray))
         }
         if let path = arguments.jsonPath {
