@@ -257,6 +257,8 @@ public enum PlanReportExport {
 
         var xml = #"<?xml version="1.0" encoding="UTF-8"?>"# + "\n"
         xml += #"<?xml-stylesheet type="text/xsl" href="\#(escape(stylesheet))"?>"# + "\n"
+        // Visible in the browsers that show the raw tree instead of applying the stylesheet.
+        xml += "<!-- A Stampdrill test report. Showing the markup rather than the page? Open it at https://stampdrill.com/report/ -->\n"
         xml += #"<report version="\#(stampXMLVersion)" generator="\#(attribute(generator))" startedAt="\#(stamp(started))" ms="\#(wholeMilliseconds(duration))" passed="\#(flag(failed == 0))">"# + "\n"
         xml += #"  <summary plans="\#(plans.count)" loads="\#(loads.count)" failed="\#(failed)" iterations="\#(plans.flatMap(\.iterations).count)" requests="\#(requests)" checks="\#(checksPassed + checksFailed)" checksFailed="\#(checksFailed)"/>"# + "\n"
         xml += plans.map(planXML).joined()

@@ -202,7 +202,8 @@ footer a { color: var(--accent); }
 <xsl:template match="iteration">
   <details>
     <xsl:attribute name="class"><xsl:call-template name="verdict"><xsl:with-param name="passed" select="@passed"/></xsl:call-template></xsl:attribute>
-    <xsl:if test="@passed = 'false'"><xsl:attribute name="open">open</xsl:attribute></xsl:if>
+    <!-- Open what the reader came for: anything that failed, and a run that has only one iteration. -->
+    <xsl:if test="@passed = 'false' or count(../iteration) = 1"><xsl:attribute name="open">open</xsl:attribute></xsl:if>
     <summary>
       <span class="dot"/>
       <xsl:value-of select="@label"/>
