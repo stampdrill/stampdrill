@@ -15,7 +15,7 @@ It diffs in a pull request, merges like code, and runs the same way for a person
 
 ### [Quick start: nothing to a passing test in five minutes →](https://stampdrill.com/quick-start/)
 
-[Install](#install) · [Try it in 60 seconds](#try-it-in-60-seconds) · [Why](#why-not-just-use-curl-or-postman) · [Language](https://stampdrill.com/language/) · [Mac app](https://stampdrill.com)
+[Install](#install) · [Guide](https://stampdrill.com/guide/) · [Try it in 60 seconds](#try-it-in-60-seconds) · [Why](#why-not-just-use-curl-or-postman) · [Language](https://stampdrill.com/language/) · [Mac app](https://stampdrill.com)
 
 </div>
 
