@@ -24,10 +24,16 @@ jobs:
       - name: List the tests
         run: swift test list --skip-build
         timeout-minutes: 3
-      # Without the sandbox: it stalls after loading the manifests, which is the
-      # part macOS runs under sandbox-exec, and the Linux job has no sandbox.
+      # The bundles are run directly rather than through swift test, which on
+      # this runner reloads every dependency manifest and then stops for good
+      # without starting a single test. Discovery works, the build works, and
+      # xctest runs the same tests in seconds.
       - name: Run the tests
-        run: swift test --skip-build --disable-sandbox
+        run: |
+          for bundle in .build/debug/*.xctest; do
+            echo "== $bundle"
+            xcrun xctest "$bundle"
+          done
         timeout-minutes: 8
 
   linux:
