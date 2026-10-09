@@ -1,7 +1,7 @@
 # Load tests run a scenario with many virtual users; thresholds decide
 # whether the run passed. Be kind to public APIs: keep the numbers small.
 #
-#   stampdrill load "Load and races.stamp"
+#   stamp load "Load and races.stamp"
 
 load BlogTraffic {
   tags load
@@ -36,7 +36,7 @@ load EchoOrders {
     run placeOrder with orderId = uuid("order")
     expect body.json.orderId == uuid("order")
     run lookupOrder with orderId = uuid("order")
-    expect body.args.id == uuid("order")
+    expect body.args.id contains uuid("order")
   }
 }
 
@@ -61,15 +61,17 @@ plan RaceOnEcho {
 # The plans above pass their own orderId; this default lets the request run on
 # its own too.
 @orderId = demo-cart
-POST {{httpbin}}/anything/orders
+POST {{echo}}/anything/orders
+X-Region: {{region}}
 
 { "orderId": "{{orderId}}", "customer": "{{person(orderId).name}}" }
 
 > assert status == 200
 > assert body.json.orderId == orderId
+> assert body.headers["X-Region"] contains region
 
 ### Lookup order
 @orderId = demo-cart
-GET {{httpbin}}/anything/orders?id={{orderId}}
+GET {{echo}}/anything/orders?id={{orderId}}
 
 > assert status == 200

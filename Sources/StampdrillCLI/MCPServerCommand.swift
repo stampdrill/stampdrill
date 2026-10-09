@@ -235,7 +235,7 @@ struct MCPServerCommand {
         }
         if let error = last.error { lines.append("error: \(error)") }
         for assertion in last.assertions {
-            lines.append("\(assertion.passed ? "✓" : "✗") \(assertion.source)" + (assertion.message.map { " — \($0)" } ?? ""))
+            lines.append("\(assertion.passed ? "✓" : "✗") \(assertion.source)" + (assertion.message.map { ": \($0)" } ?? ""))
         }
         for message in last.logs { lines.append("| \(message)") }
         if let body = last.response?.formattedBody, !body.isEmpty {
@@ -285,7 +285,7 @@ struct MCPServerCommand {
             lines.append("\(iteration.passed ? "✓" : "✗") \(iteration.label.isEmpty ? "run" : iteration.label)  \(formatDuration(iteration.duration))")
             for event in iteration.events {
                 for expectation in event.expectations where !expectation.passed {
-                    lines.append("    ✗ \(expectation.source)" + (expectation.message.map { " — \($0)" } ?? ""))
+                    lines.append("    ✗ \(expectation.source)" + (expectation.message.map { ": \($0)" } ?? ""))
                 }
             }
         }

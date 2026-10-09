@@ -2,12 +2,12 @@
 # Save any body with "Save Body…" under the response.
 
 ### PNG image
-GET {{httpbin}}/image/png
+GET {{echo}}/image/png
 
 > assert headers["content-type"] == "image/png"
 
 ### SVG image
-GET {{httpbin}}/image/svg
+GET {{echo}}/image/svg
 
 ### Dog photo
 @needs randomDog
@@ -16,12 +16,12 @@ GET {{randomDog.body.message}}
 > assert status == 200
 
 ### HTML page
-GET {{httpbin}}/html
+GET {{echo}}/html
 
 > assert text contains "Herman Melville"
 
 ### XML document
-GET {{httpbin}}/xml
+GET {{echo}}/xml
 
 ### PDF download
 GET https://www.w3.org/WAI/ER/tests/xhtml/testfiles/resources/pdf/dummy.pdf
@@ -29,9 +29,9 @@ GET https://www.w3.org/WAI/ER/tests/xhtml/testfiles/resources/pdf/dummy.pdf
 > assert headers["content-type"] contains "pdf"
 
 ### Attachment
-GET {{httpbin}}/response-headers?Content-Type=text/csv&Content-Disposition=attachment%3B%20filename%3D%22report.csv%22
+GET {{echo}}/response-headers?Content-Type=text/csv&Content-Disposition=attachment%3B%20filename%3D%22report.csv%22
 
 ### Random bytes
-GET {{httpbin}}/bytes/512
+GET {{echo}}/bytes/512
 
 > assert size == 512

@@ -137,25 +137,33 @@ MCP stdio: node build/index.js
 
 ## Environments with dimensions
 
-`environment.stamp` describes the axes requests vary along and which values
-apply where. More specific `vars` blocks win.
+A dimension is one axis requests vary along: the environment they go to, the
+region serving them, the kind of account they run as. `environment.stamp` names
+the axes and their values, and each `vars` block says which values it applies
+to. More specific blocks win.
 
 ```
-dimension environment = local, qa, prod
-dimension region = eu, us
+dimension env = test, staging, prod
+dimension region = latam, mena, apac, dach
+dimension userGroup = admin, member, guest
 
 vars {
   baseUrl = localhost(8080)
 }
 
-vars environment=qa|prod, region=eu {
-  baseUrl = "https://api." + environment + ".eu.example.com"
+vars env=staging|prod {
+  baseUrl = "https://api." + env + "." + region + ".example.com"
+}
+
+vars userGroup=guest {
+  username = "guest"
+  password = secret(getenv("GUEST_PASSWORD"))
 }
 ```
 
 - Prefer a dimension over copying variables per environment.
 - `name=a|b` matches either value; `name=*` or leaving it out matches any.
-- The selected values are variables too (`environment` above).
+- The selected values are variables too, so `{{env}}` works in a request.
 - Personal values go in `environment.local.stamp` with the same syntax.
 
 ## Test plans and load tests
@@ -164,7 +172,7 @@ Plans and load tests are written **before the first request** of a file.
 
 ```
 plan Checkout {
-  matrix environment = qa|prod
+  matrix env = staging|prod
   retry 2 every 500ms
   setup { run logIn }
 
@@ -213,8 +221,8 @@ stamp check .                      # parse errors, unknown @needs; sends nothing
 stamp list .                       # every request, grouped by file
 stamp run api/orders.stamp         # a file
 stamp run api/orders.stamp listOrders --no-save
-stamp run . environment=qa region=eu   # dimension values as arguments
-stamp env . environment=qa         # what those dimensions resolve to
+stamp run . env=staging region=latam   # dimension values as arguments
+stamp env . env=staging            # what those dimensions resolve to
 stamp test . --tags smoke --junit reports/junit.xml
 stamp load . --json reports/load.json
 stamp import collection.json env.json -o api

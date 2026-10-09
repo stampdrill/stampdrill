@@ -480,7 +480,7 @@ are written before the first request of a file.
 
 ```
 plan Checkout {
-  matrix environment = qa|prod, user = *
+  matrix env = staging|prod, userGroup = *
   data ./fixtures/users.csv
   parallel 4
   retry 2 every 500ms
@@ -501,7 +501,7 @@ plan Checkout {
     expect body.items.length > 0
   }
 
-  if environment == "qa" {
+  if env == "staging" {
     run resetCart
   } else {
     print "leaving prod alone"
@@ -604,26 +604,28 @@ stamp load . --json results.json
 
 ## Environments
 
-Dimensions describe the axes your requests vary along. Variable sets say which
-values apply where.
+A dimension is one axis your requests vary along: the environment they go to,
+the region that serves them, the kind of account they use. Each one is a named
+list of values, and variable sets say which values they apply to.
 
 ```
-dimension application = security, content, messaging
-dimension region = eu, latam, mena
-dimension environment = local, qa, prod
+dimension env = test, staging, prod
+dimension region = latam, mena, apac, dach
+dimension userGroup = admin, member, guest
 
 vars {
-  protocol = "http"
-  host = localhost(WEB)
+  host = localhost(8080)
+  limit = 25
 }
 
-vars environment=local {
-  host = localhost(TOMCAT)
-  username = secret("test")
+vars env=staging|prod {
+  host = "api." + env + "." + region + ".example.com"
 }
 
-vars environment=qa|prod, region=eu {
-  host = "api." + environment + ".eu.example.com"
+vars userGroup=guest {
+  username = "guest"
+  password = secret(getenv("GUEST_PASSWORD"))
+  limit = 5
 }
 ```
 
@@ -635,7 +637,8 @@ conditions apply in the order they are written.
 - `vars { }` applies everywhere.
 - `name=a|b` matches either value.
 - `name=*` is the same as leaving the dimension out.
-- The selected dimension values are variables too: `environment` above.
+- The selected dimension values are variables too: `env` above, which the
+  second set builds its host from.
 
 The first value of every dimension is the default. Choosing "any" for a
 dimension means only sets that don't mention it apply.
@@ -729,7 +732,7 @@ stamp import file… [-o folder]
 ```
 
 ```
-stamp run api/chat.stamp environment=qa region=eu
+stamp run api/chat.stamp env=staging region=latam
 stamp run api startAChat --var token=abc --verbose
 stamp check .
 stamp run media.stamp logo -o ~/Downloads/

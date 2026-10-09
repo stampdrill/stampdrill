@@ -22,18 +22,19 @@ It diffs in a pull request, merges like code, and runs the same way for a person
 ```console
 $ stamp test api
 
-▶ BlogSmoke  Plans.stamp
-  ✓ page=small  824 ms
-  ✓ page=large  707 ms
-✓ 2 iterations, 12 requests, 34 checks, 1.53 s
+▶ DependsOnTheEnvironment  Loops and conditions.stamp
+  ✓ env=test  246 ms
+  ✓ env=staging  177 ms
+  ✓ env=prod  525 ms
+✓ 3 iterations, 3 requests, 27 checks, 948 ms
 
-▶ AccountsForEveryUser  Plans.stamp
-  ✓ user=michael  1.01 s
-  ✓ user=emily  1.01 s
-  ✓ user=sophia  1.01 s
+▶ AccountsForEveryGroup  Plans.stamp
+  ✓ userGroup=admin  1.01 s
+  ✓ userGroup=member  1.01 s
+  ✓ userGroup=guest  1.01 s
 ✓ 3 iterations, 12 requests, 30 checks, 1.01 s
 
-✓ all 4 plans passed
+✓ all 7 plans passed
 ```
 
 ## Install
@@ -122,7 +123,7 @@ Everything below runs from the command line tool in this repository. No app requ
 | Test plans | Steps, loops, conditions, retries, timeouts, over a matrix of environments and CSV or JSON data |
 | Load tests | Virtual users, ramp up, think time, thresholds on p95, error rate and throughput |
 | Race conditions | Actors started on the same instant, to catch double spends and lost updates |
-| Environments | As many dimensions as your system has: stage, region, tenant, user. Not a flat list of environments |
+| Environments | A dimension per axis your API varies along, such as `env`, `region` and `userGroup`. You pick a value for each, instead of one name from a flat list of environments |
 | Secrets | `secret(...)` values are masked in output and kept in a local file that stays out of git |
 | Importing | Postman, Insomnia, Bruno, HAR, curl and OpenAPI, with environments and credentials carried over |
 | Reports | JUnit, HTML and JSON, with exit codes so pipelines fail when they should |
@@ -136,7 +137,7 @@ load BlogTraffic {
   users 5
   ramp 2s
   duration 10s
-  think 200ms-600ms
+  think 200ms..600ms
   seed blog-traffic
   threshold p95 < 1500ms
   threshold errors < 5%
@@ -195,22 +196,23 @@ $ stamp test api --tags race
 
 ### Test plans across environments
 
-A plan runs over a matrix, so one file covers every combination you care about:
+A plan runs over a matrix of dimension values, so one file covers every environment, region or kind of account
+you care about:
 
 ```console
 $ stamp test api
 
-▶ AccountsForEveryUser  Plans.stamp
-  ✓ user=michael  1.01 s
-  ✓ user=emily  1.01 s
-  ✓ user=sophia  1.01 s
-✓ 3 iterations, 12 requests, 30 checks, 1.01 s
+▶ DependsOnTheEnvironment  Loops and conditions.stamp
+  ✓ env=test  246 ms
+  ✓ env=staging  177 ms
+  ✓ env=prod  525 ms
+✓ 3 iterations, 3 requests, 27 checks, 948 ms
 ```
 
 ```bash
 stamp test api --junit reports/junit.xml   # for CI
 stamp test api --html reports/api.html     # one file: parse it, or open it in a browser
-stamp env api environment=qa region=eu     # what those dimensions resolve to
+stamp env api env=staging region=mena      # what those dimensions resolve to
 ```
 
 The HTML report carries its numbers in the markup, so the file a build server parses is the same one a person

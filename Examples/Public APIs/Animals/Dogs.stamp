@@ -1,4 +1,5 @@
-# dog.ceo, driven by the "breed" dimension.
+# dog.ceo. The breed is a plain variable, so a plan step can override it
+# with `run ... with breed = "beagle"`.
 
 @breedUrl = {{dogs}}/breed/{{breed}}
 

@@ -1,5 +1,5 @@
 # Log in once, then call the endpoints that need the token.
-# Switch accounts with the "user" dimension.
+# The userGroup dimension picks which demo account logs in.
 
 ### Log in
 POST {{dummyjson}}/auth/login

@@ -1,10 +1,9 @@
 # Test plans. Run them from the Plans section of the sidebar, or with:
 #
-#   stampdrill test . --html report.html
+#   stamp test . --html report.html
 
 plan BlogSmoke {
   tags smoke
-  matrix page = *
 
   step "List posts" {
     run listPosts
@@ -29,9 +28,9 @@ plan BlogSmoke {
   }
 }
 
-plan AccountsForEveryUser {
+plan AccountsForEveryGroup {
   tags auth
-  matrix user = *
+  matrix userGroup = *
   parallel 3
 
   setup { run logIn }

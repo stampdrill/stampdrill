@@ -6,7 +6,7 @@
 fn slugOf(text) = lower(replace(text, " ", "-"))
 
 ### Person with related fields
-POST {{httpbin}}/anything/users
+POST {{echo}}/anything/users
 
 {
   "name": "{{person(7).name}}",
@@ -19,7 +19,7 @@ POST {{httpbin}}/anything/users
 > save lastUserEmail = body.json.email
 
 ### Fake values
-POST {{httpbin}}/anything/orders
+POST {{echo}}/anything/orders
 
 {
   "id": "{{uuid()}}",
@@ -33,7 +33,7 @@ POST {{httpbin}}/anything/orders
 > assert body.json.price > 0
 
 ### From a JSON Schema
-POST {{httpbin}}/anything/users
+POST {{echo}}/anything/users
 
 {{ json(mock(readJson("./schemas/user.json"), "user-1")) }}
 

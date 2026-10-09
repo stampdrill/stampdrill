@@ -2,6 +2,8 @@
 # "name = < ./path" attaches a file, relative to this .stamp file.
 
 ### Multipart upload
+# Pinned to httpbin whatever env says, because the last two assertions read the
+# way httpbin reports an uploaded file: text inline, binary as a data URI.
 POST {{httpbin}}/post
 Content-Type: multipart/form-data
 
@@ -16,17 +18,18 @@ picture = < ./files/stamp.png
 > assert body.files.picture matches "^data:image/png;base64,"
 
 ### URL-encoded form
-POST {{httpbin}}/post
+POST {{echo}}/post
 Content-Type: application/x-www-form-urlencoded
 
 username = {{username}}
 remember = true
 redirect = /home?tab=1
 
-> assert body.form.redirect == "/home?tab=1"
+> assert body.form.redirect contains "/home?tab=1"
+> assert body.form.username contains username
 
 ### Raw file upload
-PUT {{httpbin}}/put
+PUT {{echo}}/put
 Content-Type: text/plain
 
 < ./files/hello.txt

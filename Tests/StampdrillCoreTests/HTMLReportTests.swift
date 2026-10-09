@@ -1,4 +1,9 @@
 import Foundation
+#if canImport(FoundationXML)
+// On Linux the XML types live in their own module, and without it XMLDocument
+// is AnyObject and every call on it fails to compile.
+import FoundationXML
+#endif
 import Testing
 @testable import StampdrillCore
 import Stamp
@@ -37,8 +42,14 @@ struct HTMLReportTests {
     }
 
     /// The guarantee the format rests on: the same bytes are a page and a tree.
+    /// The report for an XPath to walk. The page declares the XHTML namespace on
+    /// <html>, and libxml2 will not match an unprefixed step against a namespaced
+    /// element, so Linux finds nothing where macOS is lenient. The declaration is
+    /// dropped here, and `itParsesAsXMLToo` parses the page untouched to prove the
+    /// real document is well formed.
     private func document(_ html: String) throws -> XMLDocument {
-        try XMLDocument(xmlString: html, options: [.nodePreserveWhitespace])
+        let withoutNamespace = html.replacingOccurrences(of: #" xmlns="http://www.w3.org/1999/xhtml""#, with: "")
+        return try XMLDocument(xmlString: withoutNamespace, options: [.nodePreserveWhitespace])
     }
 
     @Test func itParsesAsXMLToo() async throws {
@@ -50,6 +61,9 @@ struct HTMLReportTests {
         """)], generator: "stamp 9.9.9")
 
         #expect(page.hasPrefix("<!DOCTYPE html>\n<html xmlns=\"http://www.w3.org/1999/xhtml\" lang=\"en\">\n"))
+        // The page exactly as written has to be well formed XML; the parse below
+        // walks a copy without the namespace, which is what XPath needs.
+        _ = try XMLDocument(xmlString: page, options: [.nodePreserveWhitespace])
         let parsed = try document(page)
         #expect(parsed.rootElement()?.name == "html")
         #expect(try parsed.nodes(forXPath: "/html/head/meta[@name='generator']/@content").first?.stringValue == "stamp 9.9.9")

@@ -172,7 +172,7 @@ struct ResultPrinter: Sendable {
             if assertion.passed {
                 if !quiet { t.out("  " + t.paint("✓", .green) + " " + assertion.source.dropFirst("assert ".count)) }
             } else {
-                let detail = assertion.message.map { t.paint(" — " + mask($0), .dim) } ?? ""
+                let detail = assertion.message.map { t.paint(": " + mask($0), .dim) } ?? ""
                 t.out("  " + t.paint("✗ " + assertion.source.dropFirst("assert ".count), .red) + detail)
             }
         }

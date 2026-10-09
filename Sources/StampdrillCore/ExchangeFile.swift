@@ -61,7 +61,7 @@ public enum ExchangeFile {
             lines.append("")
             for assertion in result.assertions {
                 let mark = assertion.passed ? "✓" : "✗"
-                lines.append("# \(mark) \(assertion.source)" + (assertion.message.map { " — \($0)" } ?? ""))
+                lines.append("# \(mark) \(assertion.source)" + (assertion.message.map { ": \($0)" } ?? ""))
             }
         }
         return lines.joined(separator: "\n") + "\n"

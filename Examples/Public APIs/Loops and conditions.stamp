@@ -1,9 +1,9 @@
 # Everything a plan can do besides running one request after another: loops,
 # conditions, repetition, retries, and a row of data per run.
 #
-#   stampdrill test "Loops and conditions.stamp"
+#   stamp test "Loops and conditions.stamp"
 
-plan EveryBreedTwice {
+plan BreedsAndFacts {
   tags loops
 
   # `for each` walks a list, and `index` counts from 0.
@@ -32,20 +32,21 @@ plan EveryBreedTwice {
 
 plan DependsOnTheEnvironment {
   tags loops
-  matrix page = *
+  matrix env = *
 
   # `if` and `else` let one plan behave differently per dimension value, without
-  # copying it.
-  if page == "large" {
-    step "A large page is still fast" {
-      run listPosts
-      expect body.length == limit
-      expect time < 4000, "a large page took " + time + " ms"
+  # copying it. The echo sends back the URL it was asked for, so each branch can
+  # check that env sent the request to the host it claims.
+  if env == "prod" {
+    step "Prod answers from httpbin" {
+      run echoRequest
+      expect body.url contains "httpbin.org"
+      expect time < 4000, "the echo took " + time + " ms"
     }
   } else {
-    step "A small page is tiny" {
-      run listPosts
-      expect body.length == limit
+    step "Test and staging answer from httpbingo" {
+      run echoRequest
+      expect body.url contains "httpbingo.org"
       expect size < 20000
     }
   }
@@ -70,7 +71,6 @@ plan EveryCartFromTheFile {
 
 ### Breed pictures
 @name breedPictures
-@breed = husky
 GET {{dogs}}/breed/{{breed}}/images/random/3
 
 > assert status == 200

@@ -5,6 +5,9 @@
 # The whole conversation shows up under the response.
 
 ### Echo
+# Named, because `echo` is also the variable that picks the echo host, and a
+# response answers to its name for the rest of the session.
+@name socketEcho
 WS wss://ws.postman-echo.com/raw
 
 > send json({ type: "hello", from: person(1).name, id: uuid() })

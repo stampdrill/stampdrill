@@ -166,6 +166,9 @@ public enum PlanReportExport {
         page += "<head>\n"
         page += #"<meta charset="utf-8" />"# + "\n"
         page += #"<meta name="viewport" content="width=device-width, initial-scale=1" />"# + "\n"
+        // So a report opened in the dark reads as a dark page from the first paint,
+        // before the stylesheet and the elements have arrived.
+        page += #"<meta name="color-scheme" content="light dark" />"# + "\n"
         page += #"<meta name="generator" content="\#(attribute(generator))" />"# + "\n"
         page += "<title>Stampdrill test report</title>\n"
         page += #"<link rel="stylesheet" href="\#(attribute(assets))report.css" />"# + "\n"
@@ -179,6 +182,7 @@ public enum PlanReportExport {
         stamp-report:defined > .stamp-note { display: none; }
         .stamp-note { max-width: 42rem; margin: 3rem auto; padding: 0 1.5rem; color: #5d6270;
           font: 15px/1.6 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
+        @media (prefers-color-scheme: dark) { .stamp-note { color: #a3a9b7; } }
         </style>
         </head>
         <body>

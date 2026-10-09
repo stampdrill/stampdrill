@@ -1,37 +1,83 @@
-# Dimensions are what requests vary along. Pick a value for each one in the
-# toolbar, or on the command line:
+# Dimensions are what requests vary along. Pick a value for each one from the
+# selector in the row above a request, a plan or a load test, or on the command
+# line:
 #
-#   stampdrill run . user=michael breed=pug page=large
+#   stamp run . env=staging region=mena userGroup=guest
+#
+# env picks the host the echo requests go to and how much data it holds, region
+# sets the currency and travels as a header the echo sends back, and userGroup
+# picks the account that logs in.
 
-dimension user = emily, michael, sophia
-dimension breed = husky, beagle, pug
-dimension page = small, large
+dimension env = test, staging, prod
+dimension region = latam, mena, apac, dach
+dimension userGroup = admin, member, guest
 
 vars {
   dummyjson = "https://dummyjson.com"
   placeholder = "https://jsonplaceholder.typicode.com"
-  httpbin = "https://httpbin.org"
   dogs = "https://dog.ceo/api"
   cats = "https://catfact.ninja"
+
+  # Pinned to one host, for the upload request that asserts on the way httpbin
+  # reports a file it received. httpbingo returns the bytes instead.
+  httpbin = "https://httpbin.org"
+
+  # Plain variables, not dimensions. A request overrides them with an
+  # `@breed = ...` line, a plan step with `run ... with breed = "pug"`.
+  breed = "husky"
   limit = 5
 }
 
-vars page=large {
-  limit = 25
+# httpbin.org and httpbingo.org serve the same echo API, so the same requests
+# can go to two hosts: test and staging to one, prod to the other. They differ
+# in one place. httpbingo answers with a list of values per header, query
+# parameter and form field where httpbin answers with a single string, so
+# assertions on an echoed value use `contains`, which holds for both.
+vars env=test|staging {
+  echo = "https://httpbingo.org"
+}
+
+vars env=prod {
+  echo = "https://httpbin.org"
+}
+
+# A test environment holds less data than the others, which is the sort of thing
+# that catches a request that assumed a long list.
+vars env=test {
+  limit = 2
+}
+
+# What a region changes here is the money. A real one would change the host too.
+vars region=latam {
+  currency = "BRL"
+}
+
+vars region=mena {
+  currency = "AED"
+}
+
+vars region=apac {
+  currency = "SGD"
+}
+
+vars region=dach {
+  currency = "EUR"
 }
 
 # Demo accounts published by dummyjson.com.
-vars user=emily {
+vars userGroup=admin {
   username = "emilys"
   password = secret("emilyspass")
 }
 
-vars user=michael {
+vars userGroup=member {
   username = "michaelw"
   password = secret("michaelwpass")
 }
 
-vars user=sophia {
+# A guest sees shorter lists than a member does.
+vars userGroup=guest {
   username = "sophiab"
   password = secret("sophiabpass")
+  limit = 3
 }

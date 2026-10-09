@@ -1,0 +1,60 @@
+# An echo API answers with what it received, which makes it a good place to try
+# out headers, auth and redirects. Two hosts serve the same endpoints and the
+# env dimension picks which one answers, so these requests show what changing
+# an environment does without needing an account anywhere.
+
+### Echo
+# Named, because WebSockets.stamp has an Echo too and a plan runs this one.
+@name echoRequest
+POST {{echo}}/anything?source=stampdrill
+X-Trace: {{uuid()}}
+X-Region: {{region}}
+X-Env: {{env}}
+# X-Debug: on
+
+{ "name": "{{fake.name}}", "sentAt": "{{now()}}", "currency": "{{currency}}" }
+
+> assert status == 200
+> assert body.args.source contains "stampdrill"
+> assert body.json.name != null
+> assert body.json.currency == currency, "the region's currency should travel with the order"
+> assert body.headers["X-Trace"] != null
+> assert body.headers["X-Region"] contains region, "X-Region did not come back"
+> assert body.headers["X-Env"] contains env, "the environment should be named on the way out"
+
+### Basic auth
+@auth basic user passwd
+GET {{echo}}/basic-auth/user/passwd
+
+> assert status == 200
+> assert body.authenticated == true
+
+### Bearer token
+@auth bearer {{secret("not-a-real-token")}}
+GET {{echo}}/bearer
+
+> assert body.token == "not-a-real-token"
+
+### API key in the query
+@auth apikey api_key {{sha256("stampdrill")}} query
+GET {{echo}}/get
+
+> assert body.args.api_key contains sha256("stampdrill")
+
+### Redirect, not followed
+@no-redirect
+GET {{echo}}/redirect-to?url=/get&status_code=302
+
+> assert status == 302
+> assert headers.location == "/get"
+
+### Slow response
+@timeout 5s
+GET {{echo}}/delay/1
+
+> assert time >= 1000
+
+### Teapot
+GET {{echo}}/status/418
+
+> assert status == 418
