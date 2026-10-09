@@ -11,30 +11,20 @@ jobs:
     timeout-minutes: 40
     steps:
       - uses: actions/checkout@v4
-      # Three steps rather than two, each with its own cap: a step that runs out
-      # of time fails and keeps its log, where a job that runs out is cancelled
-      # and the log goes with it.
+      # The image's default Xcode ships a SwiftPM that reloads every dependency
+      # manifest and then stops without starting a test, so the newest one on
+      # the runner is used instead.
+      - name: Toolchain
+        run: |
+          ls -d /Applications/Xcode*.app
+          sudo xcode-select -s "$(ls -d /Applications/Xcode*.app | sort -V | tail -1)"
+          swift --version
       - name: Build
         run: swift build
         timeout-minutes: 15
-      - name: Build the tests
-        run: swift build --build-tests
-        timeout-minutes: 15
-      # Listing first: if even discovery stalls it is the toolchain, not a test.
-      - name: List the tests
-        run: swift test list --skip-build
-        timeout-minutes: 3
-      # The bundles are run directly rather than through swift test, which on
-      # this runner reloads every dependency manifest and then stops for good
-      # without starting a single test. Discovery works, the build works, and
-      # xctest runs the same tests in seconds.
       - name: Run the tests
-        run: |
-          for bundle in .build/debug/*.xctest; do
-            echo "== $bundle"
-            xcrun xctest "$bundle"
-          done
-        timeout-minutes: 8
+        run: swift test
+        timeout-minutes: 12
 
   linux:
     runs-on: ubuntu-24.04
