@@ -24,8 +24,10 @@ jobs:
       - name: List the tests
         run: swift test list --skip-build
         timeout-minutes: 3
+      # Without the sandbox: it stalls after loading the manifests, which is the
+      # part macOS runs under sandbox-exec, and the Linux job has no sandbox.
       - name: Run the tests
-        run: swift test --skip-build --verbose
+        run: swift test --skip-build --disable-sandbox
         timeout-minutes: 8
 
   linux:
