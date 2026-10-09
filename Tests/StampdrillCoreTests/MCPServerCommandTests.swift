@@ -30,16 +30,37 @@ struct MCPServerCommandTests {
         process.standardInput = input
         process.standardOutput = output
         process.standardError = errors
+        // Whatever the server writes to stderr is read while it runs: a pipe left
+        // to fill stops the server writing, and then nothing finishes.
+        let complaints = Collected()
+        errors.fileHandleForReading.readabilityHandler = { handle in
+            let piece = handle.availableData
+            if !piece.isEmpty { complaints.append(piece) }
+        }
         try process.run()
         input.fileHandleForWriting.write(Data((requests.joined(separator: "\n") + "\n").utf8))
         input.fileHandleForWriting.closeFile()
+        // A server that never answers should fail this test, not run until the
+        // machine running it gives up.
+        let watchdog = DispatchWorkItem { if process.isRunning { process.terminate() } }
+        DispatchQueue.global().asyncAfter(deadline: .now() + 60, execute: watchdog)
         let data = output.fileHandleForReading.readDataToEndOfFile()
         process.waitUntilExit()
+        watchdog.cancel()
+        errors.fileHandleForReading.readabilityHandler = nil
         let replies = String(decoding: data, as: UTF8.self)
             .split(separator: "\n")
             .compactMap { try? JSONSerialization.jsonObject(with: Data($0.utf8)) as? [String: Any] }
-        #expect(process.terminationStatus == 0, "the server exited with \(process.terminationStatus): \(String(decoding: errors.fileHandleForReading.readDataToEndOfFile(), as: UTF8.self))")
+        #expect(process.terminationStatus == 0, "the server exited with \(process.terminationStatus): \(String(decoding: complaints.value, as: UTF8.self))")
         return replies
+    }
+
+    /// What the server wrote to stderr, gathered from the reading thread.
+    private final class Collected: @unchecked Sendable {
+        private let lock = NSLock()
+        private var data = Data()
+        func append(_ more: Data) { lock.lock(); data.append(more); lock.unlock() }
+        var value: Data { lock.lock(); defer { lock.unlock() }; return data }
     }
 
     private func reply(_ replies: [[String: Any]], id: Int) -> [String: Any]? {

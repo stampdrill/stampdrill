@@ -8,6 +8,7 @@ on:
 jobs:
   macos:
     runs-on: macos-15
+    timeout-minutes: 25
     steps:
       - uses: actions/checkout@v4
       - run: swift build
@@ -16,6 +17,7 @@ jobs:
   linux:
     runs-on: ubuntu-24.04
     container: swift:6.1-noble
+    timeout-minutes: 25
     steps:
       - uses: actions/checkout@v4
       - run: swift build
@@ -24,6 +26,7 @@ jobs:
   workspace:
     runs-on: ubuntu-24.04
     container: swift:6.1-noble
+    timeout-minutes: 25
     steps:
       - uses: actions/checkout@v4
       # The examples have to keep parsing: they are what people copy from.

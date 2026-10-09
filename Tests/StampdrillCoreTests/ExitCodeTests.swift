@@ -21,8 +21,11 @@ struct ExitCodeTests {
         process.executableURL = Self.binary
         process.arguments = arguments
         process.currentDirectoryURL = folder
-        process.standardOutput = Pipe()
-        process.standardError = Pipe()
+        // Nothing here reads them, and a pipe nobody drains stops the command as
+        // soon as it has written a bufferful, which hangs the test rather than
+        // failing it.
+        process.standardOutput = FileHandle.nullDevice
+        process.standardError = FileHandle.nullDevice
         var environment = ProcessInfo.processInfo.environment
         environment["STAMPDRILL_NO_BANNER"] = "1"
         process.environment = environment
