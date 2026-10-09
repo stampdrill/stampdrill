@@ -20,8 +20,12 @@ jobs:
       - name: Build the tests
         run: swift build --build-tests
         timeout-minutes: 15
+      # Listing first: if even discovery stalls it is the toolchain, not a test.
+      - name: List the tests
+        run: swift test list --skip-build
+        timeout-minutes: 3
       - name: Run the tests
-        run: swift test --skip-build
+        run: swift test --skip-build --verbose
         timeout-minutes: 8
 
   linux:
