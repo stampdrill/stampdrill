@@ -6,25 +6,24 @@ on:
   pull_request:
 
 jobs:
-  macos:
+  # macOS proves it compiles there. It does not run the tests, and the name says
+  # so rather than leaving a green tick to be read as more than it is: swift test
+  # on the macos-15 image reloads every dependency manifest and then stops
+  # without starting a test, on the default Xcode and on the newest one the image
+  # carries, with and without SwiftPM's sandbox. Running the built bundle with
+  # xctest instead executes nothing, because these are swift-testing tests and
+  # that runner only knows XCTest. The tests themselves run on Linux below, in
+  # the same container on every push, and on a Mac before anything is published.
+  macos-build:
     runs-on: macos-15
-    timeout-minutes: 40
+    timeout-minutes: 30
     steps:
       - uses: actions/checkout@v4
-      # The image's default Xcode ships a SwiftPM that reloads every dependency
-      # manifest and then stops without starting a test, so the newest one on
-      # the runner is used instead.
-      - name: Toolchain
+      - name: Build, and the tests, without running them
         run: |
-          ls -d /Applications/Xcode*.app
-          sudo xcode-select -s "$(ls -d /Applications/Xcode*.app | sort -V | tail -1)"
           swift --version
-      - name: Build
-        run: swift build
-        timeout-minutes: 15
-      - name: Run the tests
-        run: swift test
-        timeout-minutes: 12
+          swift build
+          swift build --build-tests
 
   linux:
     runs-on: ubuntu-24.04
